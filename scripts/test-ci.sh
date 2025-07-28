@@ -31,6 +31,36 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Install kubeval if not present
+install_kubeval() {
+    if ! command_exists kubeval; then
+        print_status "Installing kubeval for YAML validation..."
+        
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        
+        case $ARCH in
+            x86_64) ARCH="amd64" ;;
+            arm64|aarch64) ARCH="arm64" ;;
+            *) print_error "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        
+        # Download and install kubeval
+        KUBEVAL_URL="https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-${OS}-${ARCH}.tar.gz"
+        
+        if curl -L "$KUBEVAL_URL" | tar xz; then
+            # Move to local directory and add to PATH
+            chmod +x kubeval
+            export PATH="$(pwd):$PATH"
+            print_success "kubeval installed successfully"
+        else
+            print_warning "Failed to install kubeval, using basic YAML validation"
+            return 1
+        fi
+    fi
+}
+
 # Check prerequisites
 check_prerequisites() {
     print_status "Checking prerequisites..."
@@ -54,29 +84,42 @@ check_prerequisites() {
         exit 1
     fi
     
+    # Try to install kubeval
+    install_kubeval || print_warning "kubeval not available, using basic validation"
+    
     print_success "Prerequisites check passed"
 }
 
-# Validate YAML files using basic Python YAML parsing
+# Validate YAML files
 validate_yaml() {
     print_status "Validating YAML files..."
     
     local failed=0
     
-    # Validate individual YAML files
+    # Validate individual YAML files (excluding kustomization and patch files)
     while IFS= read -r -d '' file; do
-        if [[ "$file" != *"kustomization.yaml" ]]; then
+        if [[ "$file" != *"kustomization.yaml" ]] && [[ "$file" != *"patch.yaml" ]]; then
             print_status "Validating $file"
             
-            # Basic YAML syntax check using Python
-            if command_exists python3; then
-                if ! python3 -c "import yaml; yaml.safe_load(open('$file'))" >/dev/null 2>&1; then
-                    print_error "YAML syntax validation failed for $file"
+            # Try kubeval first, fallback to basic YAML check
+            if command_exists kubeval; then
+                if ! kubeval "$file" >/dev/null 2>&1; then
+                    print_error "kubeval validation failed for $file"
                     failed=1
                 fi
             else
-                print_warning "Python3 not available, skipping YAML validation for $file"
+                # Basic YAML syntax check using Python
+                if command_exists python3; then
+                    if ! python3 -c "import yaml; yaml.safe_load(open('$file'))" >/dev/null 2>&1; then
+                        print_error "YAML syntax validation failed for $file"
+                        failed=1
+                    fi
+                else
+                    print_warning "No YAML validation tool available for $file"
+                fi
             fi
+        else
+            print_status "Skipping patch/kustomization file: $file"
         fi
     done < <(find k8s/ -name "*.yaml" -o -name "*.yml" -print0)
     
@@ -97,8 +140,20 @@ validate_kustomize() {
     for overlay in k8s/*/; do
         if [ -f "$overlay/kustomization.yaml" ]; then
             print_status "Validating kustomize in $overlay"
-            if ! kubectl kustomize "$overlay" >/dev/null 2>&1; then
-                print_error "Kustomize validation failed for $overlay"
+            
+            # Generate the final manifests and validate them
+            if kubectl kustomize "$overlay" > /tmp/kustomized-output.yaml 2>/dev/null; then
+                if command_exists kubeval; then
+                    if ! kubeval /tmp/kustomized-output.yaml >/dev/null 2>&1; then
+                        print_error "Kustomize validation failed for $overlay"
+                        failed=1
+                    fi
+                else
+                    print_warning "kubeval not available, skipping validation of kustomized output"
+                fi
+                rm -f /tmp/kustomized-output.yaml
+            else
+                print_error "Kustomize generation failed for $overlay"
                 failed=1
             fi
         fi
@@ -241,14 +296,22 @@ validate_argocd() {
     find gitops/applications/ -name "*.yaml" | while read app; do
         print_status "Validating ArgoCD application: $app"
         
-        # Basic YAML syntax check
-        if command_exists python3; then
-            if ! python3 -c "import yaml; yaml.safe_load(open('$app'))" >/dev/null 2>&1; then
-                print_error "ArgoCD application YAML syntax failed for $app"
+        # Try kubeval first, fallback to basic YAML check
+        if command_exists kubeval; then
+            if ! kubeval "$app" >/dev/null 2>&1; then
+                print_error "ArgoCD application validation failed for $app"
                 failed=1
             fi
         else
-            print_warning "Python3 not available, skipping validation for $app"
+            # Basic YAML syntax check
+            if command_exists python3; then
+                if ! python3 -c "import yaml; yaml.safe_load(open('$app'))" >/dev/null 2>&1; then
+                    print_error "ArgoCD application YAML syntax failed for $app"
+                    failed=1
+                fi
+            else
+                print_warning "No validation tool available for $app"
+            fi
         fi
     done
     
@@ -328,8 +391,8 @@ main() {
     print_success "🎉 All CI/CD pipeline tests passed!"
     echo
     echo "Summary:"
-    echo "✅ YAML validation (using Python YAML parser)"
-    echo "✅ Kustomize validation"
+    echo "✅ YAML validation (excluding patches, validated in kustomize context)"
+    echo "✅ Kustomize validation (patches validated in context)"
     echo "✅ Operator build"
     echo "✅ Deployment test"
     echo "✅ ArgoCD validation"

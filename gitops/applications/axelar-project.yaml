@@ -12,7 +12,7 @@ spec:
   
   # Source repositories - Update these URLs to match your actual repositories
   sourceRepos:
-    - 'https://github.com/YOUR_USERNAME/axelar-k8s-deployment'
+    - 'https://github.com/evanshsl/axelar-k8s-deployment'
     - 'https://github.com/evanshsl/axelar-k8s-deployment'  # Example user repo
     - 'https://github.com/axelar-network/axelar-k8s-deployment'  # Official repo
     - 'https://github.com/axelar-network/axelar-core'

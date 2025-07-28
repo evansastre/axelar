@@ -86,6 +86,6 @@ commonAnnotations:
   argocd.argoproj.io/sync-options: RespectIgnoreDifferences=true
   config.kubernetes.io/origin: |
     path: gitops/environments/mainnet/kustomization.yaml
-    repo: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    repo: https://github.com/evanshsl/axelar-k8s-deployment
   criticality: "high"
   environment: "production"

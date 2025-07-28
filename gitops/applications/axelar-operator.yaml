@@ -14,7 +14,7 @@ spec:
   project: axelar
   source:
     # UPDATE THIS URL: Replace with your actual repository URL
-    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    repoURL: https://github.com/evanshsl/axelar-k8s-deployment
     targetRevision: HEAD
     path: operator/deploy
   destination:
@@ -43,7 +43,7 @@ spec:
     - name: 'Owner'
       value: 'Platform Team'
     - name: 'Documentation'
-      value: 'https://github.com/YOUR_USERNAME/axelar-k8s-deployment/blob/main/docs/kubernetes-operator.md'
+      value: 'https://github.com/evanshsl/axelar-k8s-deployment/blob/main/docs/kubernetes-operator.md'
   ignoreDifferences:
     - group: apps
       kind: Deployment
@@ -70,7 +70,7 @@ spec:
   project: axelar
   source:
     # UPDATE THIS URL: Replace with your actual repository URL
-    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    repoURL: https://github.com/evanshsl/axelar-k8s-deployment
     targetRevision: HEAD
     path: operator/config/crd
   destination:

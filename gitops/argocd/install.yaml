@@ -49,7 +49,7 @@ data:
   # Repository configuration - Update with your actual repository
   repositories: |
     - type: git
-      url: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+      url: https://github.com/evanshsl/axelar-k8s-deployment
       name: axelar-k8s-deployment
     - type: git
       url: https://github.com/axelar-network/axelar-core

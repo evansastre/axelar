@@ -12,7 +12,7 @@ spec:
   # Git directory generator for environments
   - git:
       # UPDATE THIS URL: Replace with your actual repository URL
-      repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+      repoURL: https://github.com/evanshsl/axelar-k8s-deployment
       revision: HEAD
       directories:
       - path: gitops/environments/*
@@ -32,7 +32,7 @@ spec:
       generators:
       - git:
           # UPDATE THIS URL: Replace with your actual repository URL
-          repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+          repoURL: https://github.com/evanshsl/axelar-k8s-deployment
           revision: HEAD
           directories:
           - path: gitops/environments/*
@@ -53,7 +53,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        repoURL: https://github.com/evanshsl/axelar-k8s-deployment
         targetRevision: HEAD
         path: '{{path}}'
       destination:
@@ -118,7 +118,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        repoURL: https://github.com/evanshsl/axelar-k8s-deployment
         targetRevision: HEAD
         path: monitoring/{{environment}}
         helm:
@@ -214,7 +214,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        repoURL: https://github.com/evanshsl/axelar-k8s-deployment
         targetRevision: HEAD
         path: gitops/environments/{{environment}}
       destination:

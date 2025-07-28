@@ -37,6 +37,11 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML
+          echo "✅ PyYAML installed successfully"
+
       - name: Create ArgoCD validation script
         run: |
           cat > validate_argocd.py << 'EOF'
@@ -471,6 +476,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML
+          echo "✅ PyYAML installed successfully"
 
       - name: Create ArgoCD validation script
         run: |

@@ -336,8 +336,8 @@ jobs:
       - name: Start minikube with increased resources
         uses: medyagh/setup-minikube@master
         with:
-          cpus: 4
-          memory: 8192
+          cpus: 2
+          memory: 4096
           kubernetes-version: ${{ matrix.k8s-version }}
           driver: docker
           container-runtime: containerd
@@ -430,10 +430,10 @@ jobs:
           echo "Generating CI-optimized testnet manifests..."
           kubectl kustomize k8s/testnet/ | \
             sed 's|axelarnet/axelar-core:v0.35.5|nginx:alpine|g' | \
-            sed 's|cpu: "4"|cpu: "500m"|g' | \
-            sed 's|memory: "8Gi"|memory: "1Gi"|g' | \
-            sed 's|cpu: "2"|cpu: "250m"|g' | \
-            sed 's|memory: "4Gi"|memory: "512Mi"|g' | \
+            sed 's|cpu: "4"|cpu: "200m"|g' | \
+            sed 's|memory: "8Gi"|memory: "512Mi"|g' | \
+            sed 's|cpu: "2"|cpu: "100m"|g' | \
+            sed 's|memory: "4Gi"|memory: "256Mi"|g' | \
             sed 's|storage: 500Gi|storage: 1Gi|g' | \
             tee /tmp/testnet-manifests.yaml
 
@@ -499,11 +499,11 @@ jobs:
               moniker: "ci-test-node"
               resources:
                 requests:
-                  cpu: "100m"
-                  memory: "256Mi"
+                  cpu: "50m"
+                  memory: "128Mi"
                 limits:
-                  cpu: "500m"
-                  memory: "512Mi"
+                  cpu: "200m"
+                  memory: "256Mi"
           EOF
             
             # Wait for resource to be created

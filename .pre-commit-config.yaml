@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.32.0
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yaml]
+
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 2.4.9
+    hooks:
+      - id: checkov
+        args: [--framework, kubernetes]
+
+  - repo: local
+    hooks:
+      - id: validate-k8s-manifests
+        name: Validate Kubernetes Manifests
+        entry: scripts/test-ci.sh
+        language: script
+        pass_filenames: false
+        always_run: true

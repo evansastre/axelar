@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable insecure mode for easier local development
+  server.insecure: "true"
+  # Enable application in any namespace
+  application.namespaces: "*"
+  # Enable server side apply
+  server.enable.proxy.extension: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable anonymous access for demo purposes
+  # In production, configure proper RBAC
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:admin, certificates, *, *, allow
+    p, role:admin, projects, *, *, allow
+    p, role:admin, accounts, *, *, allow
+    p, role:admin, gpgkeys, *, *, allow
+    p, role:admin, logs, *, *, allow
+    p, role:admin, exec, *, *, allow
+    g, argocd-admins, role:admin
+  
+  # Repository configuration - Update with your actual repository
+  repositories: |
+    - type: git
+      url: https://github.com/evansastre/axelar.git
+      name: axelar-k8s-deployment
+    - type: git
+      url: https://github.com/axelar-network/axelar-core
+      name: axelar-core
+    - type: helm
+      url: https://charts.bitnami.com/bitnami
+      name: bitnami
+    - type: helm
+      url: https://prometheus-community.github.io/helm-charts
+      name: prometheus-community
+  
+  # Application configuration
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Resource customizations for Axelar resources
+  resource.customizations: |
+    blockchain.axelar.network/AxelarNode:
+      health.lua: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Running" then
+            hs.status = "Healthy"
+            hs.message = "AxelarNode is running"
+          elseif obj.status.phase == "Syncing" then
+            hs.status = "Progressing"
+            hs.message = "AxelarNode is syncing"
+          elseif obj.status.phase == "Failed" then
+            hs.status = "Degraded"
+            hs.message = "AxelarNode has failed"
+          else
+            hs.status = "Progressing"
+            hs.message = "AxelarNode is " .. obj.status.phase
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "AxelarNode status unknown"
+        end
+        return hs
+    blockchain.axelar.network/AxelarNetwork:
+      health.lua: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Active" then
+            hs.status = "Healthy"
+            hs.message = "AxelarNetwork is active"
+          elseif obj.status.phase == "Upgrading" then
+            hs.status = "Progressing"
+            hs.message = "AxelarNetwork is upgrading"
+          elseif obj.status.phase == "Degraded" then
+            hs.status = "Degraded"
+            hs.message = "AxelarNetwork is degraded"
+          else
+            hs.status = "Progressing"
+            hs.message = "AxelarNetwork is " .. obj.status.phase
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "AxelarNetwork status unknown"
+        end
+        return hs

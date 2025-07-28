@@ -12,8 +12,8 @@ spec:
   
   # Source repositories - Update these URLs to match your actual repositories
   sourceRepos:
-    - 'https://github.com/evansastre/axelar.git'
-    - 'https://github.com/evansastre/axelar.git'  # Example user repo
+    - 'https://github.com/evansastre/axelar'
+    - 'https://github.com/evansastre/axelar'  # Example user repo
     - 'https://github.com/axelar-network/axelar-k8s-deployment'  # Official repo
     - 'https://github.com/axelar-network/axelar-core'
     - 'https://charts.bitnami.com/bitnami'

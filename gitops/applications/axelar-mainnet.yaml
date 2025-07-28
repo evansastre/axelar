@@ -16,7 +16,7 @@ spec:
   project: axelar
   source:
     # UPDATE THIS URL: Replace with your actual repository URL
-    repoURL: https://github.com/evansastre/axelar.git
+    repoURL: https://github.com/evansastre/axelar
     targetRevision: HEAD
     path: gitops/environments/mainnet
   destination:
@@ -79,7 +79,7 @@ spec:
   project: axelar
   source:
     # UPDATE THIS URL: Replace with your actual repository URL
-    repoURL: https://github.com/evansastre/axelar.git
+    repoURL: https://github.com/evansastre/axelar
     targetRevision: HEAD
     path: gitops/environments/mainnet/network
   destination:

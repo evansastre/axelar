@@ -12,7 +12,7 @@ spec:
   # Git directory generator for environments
   - git:
       # UPDATE THIS URL: Replace with your actual repository URL
-      repoURL: https://github.com/evansastre/axelar.git
+      repoURL: https://github.com/evansastre/axelar
       revision: HEAD
       directories:
       - path: gitops/environments/*
@@ -32,7 +32,7 @@ spec:
       generators:
       - git:
           # UPDATE THIS URL: Replace with your actual repository URL
-          repoURL: https://github.com/evansastre/axelar.git
+          repoURL: https://github.com/evansastre/axelar
           revision: HEAD
           directories:
           - path: gitops/environments/*
@@ -53,7 +53,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/evansastre/axelar.git
+        repoURL: https://github.com/evansastre/axelar
         targetRevision: HEAD
         path: '{{path}}'
       destination:
@@ -118,7 +118,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/evansastre/axelar.git
+        repoURL: https://github.com/evansastre/axelar
         targetRevision: HEAD
         path: monitoring/{{environment}}
         helm:
@@ -214,7 +214,7 @@ spec:
       project: axelar
       source:
         # UPDATE THIS URL: Replace with your actual repository URL
-        repoURL: https://github.com/evansastre/axelar.git
+        repoURL: https://github.com/evansastre/axelar
         targetRevision: HEAD
         path: gitops/environments/{{environment}}
       destination:
@@ -222,8 +222,8 @@ spec:
         namespace: 'axelar-{{environment}}'
       syncPolicy:
         automated:
-          prune: '{{prune}}'
-          selfHeal: '{{autoSync}}'
+          prune: "{{prune}}"
+          selfHeal: "{{autoSync}}"
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true

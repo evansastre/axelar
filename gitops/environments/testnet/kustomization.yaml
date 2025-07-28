@@ -66,4 +66,4 @@ commonAnnotations:
   argocd.argoproj.io/sync-wave: "2"
   config.kubernetes.io/origin: |
     path: gitops/environments/testnet/kustomization.yaml
-    repo: https://github.com/evanshsl/axelar-k8s-deployment
+    repo: https://github.com/evansastre/axelar.git

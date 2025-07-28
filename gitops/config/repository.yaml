@@ -8,11 +8,11 @@ metadata:
   namespace: argocd
 data:
   # Configured repository URL
-  repository.url: "https://github.com/evanshsl/axelar-k8s-deployment"
+  repository.url: "https://github.com/evansastre/axelar.git"
   
   # Branch/revision to track
   repository.revision: "HEAD"
   
   # Configuration timestamp
-  configured.at: "2025-07-28T13:05:26Z"
+  configured.at: "2025-07-28T13:07:19Z"
   configured.by: "evanshsl@7cf34de8ada9"

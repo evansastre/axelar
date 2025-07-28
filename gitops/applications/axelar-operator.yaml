@@ -1,0 +1,95 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-operator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: operator/deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: axelar-operator-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  info:
+    - name: 'Description'
+      value: 'Axelar Kubernetes Operator for automated node management'
+    - name: 'Owner'
+      value: 'Platform Team'
+    - name: 'Documentation'
+      value: 'https://github.com/YOUR_USERNAME/axelar-k8s-deployment/blob/main/docs/kubernetes-operator.md'
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-crds
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-crds
+    app.kubernetes.io/component: crd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: operator/config/crd
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false  # Don't auto-prune CRDs
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - Replace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  revisionHistoryLimit: 5
+  info:
+    - name: 'Description'
+      value: 'Axelar Custom Resource Definitions'

@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: axelar-node-service
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "26660"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - name: rpc
+      port: 26657
+      targetPort: 26657
+      protocol: TCP
+    - name: p2p
+      port: 26656
+      targetPort: 26656
+      protocol: TCP
+    - name: abci
+      port: 26658
+      targetPort: 26658
+      protocol: TCP
+    - name: api
+      port: 1317
+      targetPort: 1317
+      protocol: TCP
+    - name: grpc
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+    - name: grpc-web
+      port: 9091
+      targetPort: 9091
+      protocol: TCP
+    - name: prometheus
+      port: 26660
+      targetPort: 26660
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: axelar-node-p2p
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node
+spec:
+  type: NodePort
+  ports:
+    - name: p2p
+      port: 26656
+      targetPort: 26656
+      protocol: TCP
+      nodePort: 30656
+  selector:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node

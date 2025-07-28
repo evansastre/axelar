@@ -1,0 +1,236 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: axelar-environments
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-applicationset
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  generators:
+  # Git directory generator for environments
+  - git:
+      # UPDATE THIS URL: Replace with your actual repository URL
+      repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+      revision: HEAD
+      directories:
+      - path: gitops/environments/*
+      - path: gitops/environments/*/overlays/*
+  
+  # Cluster generator for multi-cluster deployments
+  - clusters:
+      selector:
+        matchLabels:
+          environment: axelar
+      values:
+        clusterName: '{{name}}'
+        server: '{{server}}'
+  
+  # Matrix generator combining environments and clusters
+  - matrix:
+      generators:
+      - git:
+          # UPDATE THIS URL: Replace with your actual repository URL
+          repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+          revision: HEAD
+          directories:
+          - path: gitops/environments/*
+      - clusters:
+          selector:
+            matchLabels:
+              environment: axelar
+  
+  template:
+    metadata:
+      name: 'axelar-{{path.basename}}-{{values.clusterName}}'
+      labels:
+        environment: '{{path.basename}}'
+        cluster: '{{values.clusterName}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: axelar
+      source:
+        # UPDATE THIS URL: Replace with your actual repository URL
+        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        targetRevision: HEAD
+        path: '{{path}}'
+      destination:
+        server: '{{values.server}}'
+        namespace: 'axelar-{{path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      revisionHistoryLimit: 10
+      info:
+        - name: 'Environment'
+          value: '{{path.basename}}'
+        - name: 'Cluster'
+          value: '{{values.clusterName}}'
+        - name: 'Generated'
+          value: 'ApplicationSet'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: axelar-monitoring
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-monitoring-applicationset
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  generators:
+  - list:
+      elements:
+      - environment: testnet
+        namespace: axelar-testnet
+        monitoring: basic
+        retention: 7d
+      - environment: mainnet
+        namespace: axelar-mainnet
+        monitoring: advanced
+        retention: 90d
+  
+  template:
+    metadata:
+      name: 'axelar-monitoring-{{environment}}'
+      labels:
+        environment: '{{environment}}'
+        component: monitoring
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+    spec:
+      project: axelar
+      source:
+        # UPDATE THIS URL: Replace with your actual repository URL
+        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        targetRevision: HEAD
+        path: monitoring/{{environment}}
+        helm:
+          valueFiles:
+          - values-{{environment}}.yaml
+          parameters:
+          - name: retention
+            value: '{{retention}}'
+          - name: monitoring.level
+            value: '{{monitoring}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'axelar-monitoring-{{environment}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+      revisionHistoryLimit: 5
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: axelar-progressive-rollout
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-progressive-rollout
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  generators:
+  - list:
+      elements:
+      # Progressive rollout: dev -> staging -> testnet -> mainnet
+      - environment: dev
+        wave: "1"
+        autoSync: true
+        prune: true
+      - environment: staging
+        wave: "2"
+        autoSync: true
+        prune: true
+      - environment: testnet
+        wave: "3"
+        autoSync: true
+        prune: false
+      - environment: mainnet
+        wave: "4"
+        autoSync: false  # Manual sync for production
+        prune: false
+  
+  strategy:
+    type: RollingSync
+    rollingSync:
+      steps:
+      - matchExpressions:
+        - key: wave
+          operator: In
+          values: ["1"]
+      - matchExpressions:
+        - key: wave
+          operator: In
+          values: ["2"]
+      - matchExpressions:
+        - key: wave
+          operator: In
+          values: ["3"]
+      - matchExpressions:
+        - key: wave
+          operator: In
+          values: ["4"]
+  
+  template:
+    metadata:
+      name: 'axelar-rollout-{{environment}}'
+      labels:
+        environment: '{{environment}}'
+        wave: '{{wave}}'
+        rollout: progressive
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{wave}}'
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: axelar-deployments
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: axelar-alerts
+    spec:
+      project: axelar
+      source:
+        # UPDATE THIS URL: Replace with your actual repository URL
+        repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+        targetRevision: HEAD
+        path: gitops/environments/{{environment}}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'axelar-{{environment}}'
+      syncPolicy:
+        automated:
+          prune: '{{prune}}'
+          selfHeal: '{{autoSync}}'
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
+      revisionHistoryLimit: 20

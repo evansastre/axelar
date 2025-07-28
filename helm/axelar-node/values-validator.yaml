@@ -1,0 +1,137 @@
+# Values for Axelar validator deployment
+
+# Deployment type
+deploymentType: "validator"
+
+# Enable validator components
+validator:
+  enabled: true
+
+# Network configuration
+network:
+  name: "testnet"
+
+# Node configuration
+node:
+  moniker: "axelar-validator-helm"
+  
+  # Storage configuration for validator
+  storage:
+    size: "500Gi"
+    storageClass: "fast-ssd"  # Use fast storage for validators
+
+# Validator-specific configuration
+validator:
+  # Higher resources for validator
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "4"
+    limits:
+      memory: "16Gi"
+      cpu: "8"
+
+  # Vald resources
+  vald:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+
+  # Tofnd resources and storage
+  tofnd:
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "0.5"
+      limits:
+        memory: "2Gi"
+        cpu: "1"
+    storage:
+      size: "20Gi"
+      storageClass: "fast-ssd"
+
+# Secrets (MUST be provided for validators)
+secrets:
+  keyringPassword: ""        # Set via: --set secrets.keyringPassword=your-password
+  tofndPassword: ""          # Set via: --set secrets.tofndPassword=your-tofnd-password
+  # Optional: provide base64 encoded keys
+  # validatorMnemonic: ""    # Base64 encoded validator mnemonic
+  # tofndMnemonic: ""        # Base64 encoded tofnd mnemonic
+  # tendermintKey: ""        # Base64 encoded tendermint key
+
+# Service configuration
+service:
+  type: ClusterIP
+  p2pService:
+    enabled: true
+    type: NodePort
+
+# Enhanced monitoring for validators
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: "15s"  # More frequent monitoring
+    labels:
+      validator: "true"
+
+# Stricter health checks for validators
+healthChecks:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 180  # Longer startup time
+    periodSeconds: 30
+    failureThreshold: 5
+  readiness:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    failureThreshold: 5
+
+# Production configuration for validators
+config:
+  app:
+    pruning: "everything"  # Minimal state for validators
+    telemetry:
+      enabled: true
+      prometheusRetentionTime: 300  # Longer retention
+  
+  tendermint:
+    logLevel: "info"
+    logFormat: "json"
+    # Enhanced P2P settings for validators
+    p2p:
+      maxNumInboundPeers: 50
+      maxNumOutboundPeers: 20
+      sendRate: 10240000  # Higher bandwidth
+      recvRate: 10240000
+
+# Node affinity to ensure validator runs on dedicated nodes
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - validator
+
+# Tolerations for dedicated validator nodes
+tolerations:
+- key: "validator"
+  operator: "Equal"
+  value: "true"
+  effect: "NoSchedule"
+
+# Priority class for validator workloads
+priorityClassName: "high-priority"
+
+# Pod disruption budget to prevent accidental downtime
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

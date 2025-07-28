@@ -1,0 +1,57 @@
+apiVersion: blockchain.axelar.network/v1alpha1
+kind: AxelarNetwork
+metadata:
+  name: testnet
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: network
+    environment: testnet
+    network: axelar-testnet-lisbon-3
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  networkName: testnet
+  chainId: axelar-testnet-lisbon-3
+  
+  genesis:
+    url: "https://raw.githubusercontent.com/axelarnetwork/axelarate-community/main/resources/testnet/genesis.json"
+    checksum: "sha256:abcdef1234567890"
+    autoUpdate: true
+  
+  seeds:
+    - id: "ade4d8bc8cbe014af6ebdf3cb7b1e9ad36f412c0"
+      address: "seeds.polkachu.com:15956"
+      provider: "Polkachu"
+    - id: "20e1000e88125698264454a884812746c2eb4807"
+      address: "seeds.lavenderfive.com:15956"
+      provider: "Lavender.Five"
+    - id: "babc3f3f7804933265ec9c40ad94f4da8e9e0017"
+      address: "seed.rhinostake.com:15956"
+      provider: "RhinoStake"
+  
+  persistentPeers:
+    - id: "f4f605d60b8ffaaf15240564e58a81103510631c"
+      address: "159.203.9.164:26656"
+      provider: "Community"
+    - id: "4f2441bc0a80148efb5e9c6c5a8b5b3c7b5b5b5b"
+      address: "165.227.138.48:26656"
+      provider: "Community"
+  
+  upgrades:
+    - name: "v0.36.0"
+      height: 2000000
+      version: "v0.36.0"
+      info: "Upgrade to v0.36.0 with new features"
+      scheduled: false
+  
+  monitoring:
+    healthCheck:
+      enabled: true
+      interval: "30s"
+      endpoints:
+        - "https://testnet-rpc.axelar.network/health"
+        - "https://testnet-api.axelar.network/cosmos/base/tendermint/v1beta1/node_info"
+    metrics:
+      aggregation: true
+      retention: "30d"

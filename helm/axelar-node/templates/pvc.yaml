@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-{{ .Values.deploymentType }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.node.storage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.node.storage.size }}
+  {{- if .Values.node.storage.storageClass }}
+  storageClassName: {{ .Values.node.storage.storageClass }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-shared-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-storage
+spec:
+  accessModes:
+    - {{ .Values.node.sharedStorage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.node.sharedStorage.size }}
+  {{- if .Values.node.sharedStorage.storageClass }}
+  storageClassName: {{ .Values.node.sharedStorage.storageClass }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+{{- if eq .Values.deploymentType "validator" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-tofnd-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tofnd-storage
+spec:
+  accessModes:
+    - {{ .Values.validator.tofnd.storage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.validator.tofnd.storage.size }}
+  {{- if .Values.validator.tofnd.storage.storageClass }}
+  storageClassName: {{ .Values.validator.tofnd.storage.storageClass }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+{{- end }}

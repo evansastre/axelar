@@ -1,0 +1,91 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: axelar-mainnet
+  annotations:
+    config.kubernetes.io/local-config: "true"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+
+namespace: axelar-mainnet
+
+resources:
+  - namespace.yaml
+  - validator-node.yaml
+  - sentry-node.yaml
+
+labels:
+  - pairs:
+      environment: mainnet
+      network: axelar-dojo-1
+      managed-by: argocd
+      criticality: high
+
+images:
+  - name: axelarnet/axelar-core
+    newTag: v0.35.5
+
+configMapGenerator:
+  - name: mainnet-config
+    literals:
+      - CHAIN_ID=axelar-dojo-1
+      - NETWORK=mainnet
+      - ENVIRONMENT=mainnet
+    options:
+      disableNameSuffixHash: true
+
+# Note: Secrets should be managed externally for production
+# Using external secret management (Vault, AWS Secrets Manager, etc.)
+secretGenerator:
+  - name: mainnet-secrets-placeholder
+    literals:
+      - placeholder=use-external-secret-management
+    type: Opaque
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  # Production resource requirements
+  - target:
+      kind: AxelarNode
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/cpu
+        value: "8"
+      - op: replace
+        path: /spec/resources/requests/memory
+        value: "16Gi"
+      - op: replace
+        path: /spec/resources/limits/cpu
+        value: "16"
+      - op: replace
+        path: /spec/resources/limits/memory
+        value: "32Gi"
+      - op: replace
+        path: /spec/storage/size
+        value: "2Ti"
+      - op: replace
+        path: /spec/storage/storageClass
+        value: "fast-ssd"
+      - op: replace
+        path: /spec/upgrade/autoUpgrade
+        value: false
+      - op: replace
+        path: /spec/upgrade/strategy
+        value: "manual"
+
+replicas:
+  - name: validator-node
+    count: 1
+  - name: sentry-node
+    count: 3
+
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "2"
+  argocd.argoproj.io/sync-options: RespectIgnoreDifferences=true
+  config.kubernetes.io/origin: |
+    path: gitops/environments/mainnet/kustomization.yaml
+    repo: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+  criticality: "high"
+  environment: "production"

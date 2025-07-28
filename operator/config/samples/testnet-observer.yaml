@@ -1,0 +1,67 @@
+apiVersion: blockchain.axelar.network/v1alpha1
+kind: AxelarNode
+metadata:
+  name: axelar-testnet-observer
+  namespace: axelar-testnet
+spec:
+  nodeType: observer
+  network: testnet
+  moniker: "axelar-k8s-observer"
+  
+  image:
+    repository: axelarnet/axelar-core
+    tag: v0.35.5
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  
+  storage:
+    size: "500Gi"
+    storageClass: "standard"
+    backup:
+      enabled: true
+      schedule: "0 2 * * *"
+      retention: "7d"
+  
+  networking:
+    p2p:
+      port: 26656
+      persistentPeers: []
+      seeds: []
+    rpc:
+      enabled: true
+      port: 26657
+      cors: false
+    api:
+      enabled: true
+      port: 1317
+  
+  monitoring:
+    enabled: true
+    prometheus:
+      port: 26660
+      path: "/metrics"
+    alerts:
+      enabled: true
+  
+  upgrade:
+    strategy: rolling
+    autoUpgrade: false
+    preUpgradeBackup: true
+    rollbackOnFailure: true
+  
+  security:
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1001
+      fsGroup: 1001
+    networkPolicies: true
+    secretManagement:
+      provider: kubernetes
+      autoRotation: false

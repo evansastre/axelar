@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: axelar-testnet
+
+resources:
+  - namespace.yaml
+  - ../base
+
+patches:
+  - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: axelar-node
+
+images:
+  - name: axelarnet/axelar-core
+    newTag: v0.35.5
+
+labels:
+  - pairs:
+      environment: testnet
+      network: axelar-testnet-lisbon-3
+
+configMapGenerator:
+  - name: axelar-testnet-config
+    files:
+      - seeds.txt

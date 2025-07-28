@@ -1,0 +1,391 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  app.toml: |
+    # This is a TOML config file.
+    # For more information, see https://github.com/toml-lang/toml
+
+    ###############################################################################
+    ###                           Base Configuration                            ###
+    ###############################################################################
+
+    # The minimum gas prices a validator is willing to accept for processing a
+    # transaction. A transaction's fees must meet the minimum of any denomination
+    # specified in this config (e.g. 0.25token1;0.0001token2).
+    minimum-gas-prices = "{{ .Values.config.app.minimumGasPrices }}"
+
+    # default: the last 100 states are kept in addition to every 500th state; pruning at 10 block intervals
+    # nothing: all historic states will be saved, nothing will be deleted (i.e. archiving node)
+    # everything: all saved states will be deleted, storing only the current state; pruning at 10 block intervals
+    # custom: allow pruning options to be manually specified through 'pruning-keep-recent', 'pruning-keep-every', and 'pruning-interval'
+    pruning = "{{ .Values.config.app.pruning }}"
+
+    # These are applied if and only if the pruning strategy is custom.
+    pruning-keep-recent = "{{ .Values.config.app.pruningKeepRecent }}"
+    pruning-keep-every = "{{ .Values.config.app.pruningKeepEvery }}"
+    pruning-interval = "{{ .Values.config.app.pruningInterval }}"
+
+    # HaltHeight contains a non-zero block height at which a node will gracefully
+    # halt and shutdown that can be used to assist upgrades and testing.
+    halt-height = {{ .Values.config.app.haltHeight }}
+
+    # HaltTime contains a non-zero minimum block time (in Unix seconds) at which
+    # a node will gracefully halt and shutdown that can be used to assist upgrades
+    # and testing.
+    halt-time = {{ .Values.config.app.haltTime }}
+
+    # MinRetainBlocks defines the minimum block height offset from the current
+    # block being committed, such that all blocks past this offset are pruned
+    # from Tendermint.
+    min-retain-blocks = {{ .Values.config.app.minRetainBlocks }}
+
+    # InterBlockCache enables inter-block caching.
+    inter-block-cache = {{ .Values.config.app.interBlockCache }}
+
+    # IavlCacheSize set the size of the iavl tree cache.
+    iavl-cache-size = {{ .Values.config.app.iavlCacheSize }}
+
+    ###############################################################################
+    ###                         Telemetry Configuration                        ###
+    ###############################################################################
+
+    [telemetry]
+
+    # Prefixed with keys to separate services.
+    service-name = ""
+
+    # Enabled enables the application telemetry functionality. When enabled,
+    # an in-memory sink is also enabled by default. Operators may also enabled
+    # other sinks such as Prometheus.
+    enabled = {{ .Values.config.app.telemetry.enabled }}
+
+    # Enable prefixing gauge values with hostname.
+    enable-hostname = {{ .Values.config.app.telemetry.enableHostname }}
+
+    # Enable adding hostname to labels.
+    enable-hostname-label = {{ .Values.config.app.telemetry.enableHostnameLabel }}
+
+    # Enable adding service to labels.
+    enable-service-label = {{ .Values.config.app.telemetry.enableServiceLabel }}
+
+    # PrometheusRetentionTime, when positive, enables a Prometheus metrics sink.
+    prometheus-retention-time = {{ .Values.config.app.telemetry.prometheusRetentionTime }}
+
+    # GlobalLabels defines a global set of name/value label tuples applied to all
+    # metrics emitted using the wrapper functions defined in telemetry package.
+    global-labels = []
+
+    ###############################################################################
+    ###                           API Configuration                             ###
+    ###############################################################################
+
+    [api]
+
+    # Enable defines if the API server should be enabled.
+    enable = {{ .Values.config.app.api.enable }}
+
+    # Swagger defines if swagger documentation should automatically be registered.
+    swagger = {{ .Values.config.app.api.swagger }}
+
+    # Address defines the API server to listen on.
+    address = "{{ .Values.config.app.api.address }}"
+
+    # MaxOpenConnections defines the number of maximum open connections.
+    max-open-connections = {{ .Values.config.app.api.maxOpenConnections }}
+
+    # RPCReadTimeout defines the Tendermint RPC read timeout (in seconds).
+    rpc-read-timeout = {{ .Values.config.app.api.rpcReadTimeout }}
+
+    # RPCWriteTimeout defines the Tendermint RPC write timeout (in seconds).
+    rpc-write-timeout = {{ .Values.config.app.api.rpcWriteTimeout }}
+
+    # RPCMaxBodyBytes defines the Tendermint maximum response body (in bytes).
+    rpc-max-body-bytes = {{ .Values.config.app.api.rpcMaxBodyBytes }}
+
+    # EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
+    enabled-unsafe-cors = {{ .Values.config.app.api.enableUnsafeCors }}
+
+    ###############################################################################
+    ###                           gRPC Configuration                           ###
+    ###############################################################################
+
+    [grpc]
+
+    # Enable defines if the gRPC server should be enabled.
+    enable = {{ .Values.config.app.grpc.enable }}
+
+    # Address defines the gRPC server address to bind to.
+    address = "{{ .Values.config.app.grpc.address }}"
+
+    ###############################################################################
+    ###                        gRPC Web Configuration                          ###
+    ###############################################################################
+
+    [grpc-web]
+
+    # GRPCWebEnable defines if the gRPC-web should be enabled.
+    # NOTE: gRPC must also be enabled, otherwise, this configuration is a no-op.
+    enable = {{ .Values.config.app.grpcWeb.enable }}
+
+    # Address defines the gRPC-web server address to bind to.
+    address = "{{ .Values.config.app.grpcWeb.address }}"
+
+    # EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
+    enable-unsafe-cors = {{ .Values.config.app.grpcWeb.enableUnsafeCors }}
+
+  config.toml: |
+    # This is a TOML config file.
+    # For more information, see https://github.com/toml-lang/toml
+
+    #######################################################################
+    ###                   Main Base Config Options                      ###
+    #######################################################################
+
+    # TCP or UNIX socket address of the ABCI application,
+    # or the name of an ABCI application compiled in with the Tendermint binary
+    proxy_app = "{{ .Values.config.tendermint.proxyApp }}"
+
+    # A custom human readable name for this node
+    moniker = "{{ .Values.node.moniker }}"
+
+    # If this node is many blocks behind the tip of the chain, FastSync
+    # allows them to catchup quickly by downloading blocks in parallel
+    # and verifying their commits
+    fast_sync = {{ .Values.config.tendermint.fastSync }}
+
+    # Database backend: goleveldb | cleveldb | boltdb | rocksdb | badgerdb
+    db_backend = "{{ .Values.config.tendermint.dbBackend }}"
+
+    # Database directory
+    db_dir = "{{ .Values.config.tendermint.dbDir }}"
+
+    # Output level for logging, including package level options
+    log_level = "{{ .Values.config.tendermint.logLevel }}"
+
+    # Output format: 'plain' (colored text) or 'json'
+    log_format = "{{ .Values.config.tendermint.logFormat }}"
+
+    ##### additional base config options #####
+
+    # Path to the JSON file containing the initial validator set and other meta data
+    genesis_file = "config/genesis.json"
+
+    # Path to the JSON file containing the private key to use as a validator in the consensus protocol
+    priv_validator_key_file = "config/priv_validator_key.json"
+
+    # Path to the JSON file containing the last sign state of a validator
+    priv_validator_state_file = "data/priv_validator_state.json"
+
+    # TCP or UNIX socket address for Tendermint to listen on for
+    # connections from an external PrivValidator process
+    priv_validator_laddr = ""
+
+    # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
+    node_key_file = "config/node_key.json"
+
+    # Mechanism to connect to the ABCI application: socket | grpc
+    abci = "socket"
+
+    # If true, query the ABCI app on connecting to a new peer
+    # so the app can decide if we should keep the connection or not
+    filter_peers = false
+
+    #######################################################
+    ###       RPC Server Configuration Options          ###
+    #######################################################
+    [rpc]
+
+    # TCP or UNIX socket address for the RPC server to listen on
+    laddr = "{{ .Values.config.tendermint.rpc.laddr }}"
+
+    # A list of origins a cross-domain request can be executed from
+    # Default value '[]' disables cors support
+    # Use '["*"]' to allow any origin
+    cors_allowed_origins = {{ .Values.config.tendermint.rpc.corsAllowedOrigins | toJson }}
+
+    # A list of methods the client is allowed to use with cross-domain requests
+    cors_allowed_methods = {{ .Values.config.tendermint.rpc.corsAllowedMethods | toJson }}
+
+    # A list of non simple headers the client is allowed to use with cross-domain requests
+    cors_allowed_headers = {{ .Values.config.tendermint.rpc.corsAllowedHeaders | toJson }}
+
+    # TCP or UNIX socket address for the gRPC server to listen on
+    # NOTE: This server only supports /broadcast_tx_commit
+    grpc_laddr = "{{ .Values.config.tendermint.rpc.grpcLaddr }}"
+
+    # Maximum number of simultaneous connections.
+    grpc_max_open_connections = {{ .Values.config.tendermint.rpc.grpcMaxOpenConnections }}
+
+    # Activate unsafe RPC commands like /dial_seeds and /unsafe_flush_mempool
+    unsafe = {{ .Values.config.tendermint.rpc.unsafe }}
+
+    # Maximum number of simultaneous connections (including WebSocket).
+    max_open_connections = {{ .Values.config.tendermint.rpc.maxOpenConnections }}
+
+    # Maximum number of unique clientIDs that can /subscribe
+    max_subscription_clients = {{ .Values.config.tendermint.rpc.maxSubscriptionClients }}
+
+    # Maximum number of unique queries a given client can /subscribe to
+    max_subscriptions_per_client = {{ .Values.config.tendermint.rpc.maxSubscriptionsPerClient }}
+
+    # How long to wait for a tx to be committed during /broadcast_tx_commit.
+    timeout_broadcast_tx_commit = "{{ .Values.config.tendermint.rpc.timeoutBroadcastTxCommit }}"
+
+    # Maximum size of request body, in bytes
+    max_body_bytes = {{ .Values.config.tendermint.rpc.maxBodyBytes }}
+
+    # Maximum size of request header, in bytes
+    max_header_bytes = {{ .Values.config.tendermint.rpc.maxHeaderBytes }}
+
+    # The path to a file containing certificate that is used to create the HTTPS server.
+    tls_cert_file = "{{ .Values.config.tendermint.rpc.tlsCertFile }}"
+
+    # The path to a file containing matching private key that is used to create the HTTPS server.
+    tls_key_file = "{{ .Values.config.tendermint.rpc.tlsKeyFile }}"
+
+    # pprof listen address (https://golang.org/pkg/net/http/pprof)
+    pprof_laddr = "{{ .Values.config.tendermint.rpc.pprofLaddr }}"
+
+    #######################################################
+    ###           P2P Configuration Options             ###
+    #######################################################
+    [p2p]
+
+    # Address to listen for incoming connections
+    laddr = "{{ .Values.config.tendermint.p2p.laddr }}"
+
+    # Address to advertise to peers for them to dial
+    external_address = "{{ .Values.config.tendermint.p2p.externalAddress }}"
+
+    # Comma separated list of seed nodes to connect to
+    seeds = "{{ .Values.config.tendermint.p2p.seeds }}"
+
+    # Comma separated list of nodes to keep persistent connections to
+    persistent_peers = "{{ .Values.config.tendermint.p2p.persistentPeers }}"
+
+    # UPNP port forwarding
+    upnp = {{ .Values.config.tendermint.p2p.upnp }}
+
+    # Path to address book
+    addr_book_file = "config/addrbook.json"
+
+    # Set true for strict address routability rules
+    addr_book_strict = {{ .Values.config.tendermint.p2p.addrBookStrict }}
+
+    # Maximum number of inbound peers
+    max_num_inbound_peers = {{ .Values.config.tendermint.p2p.maxNumInboundPeers }}
+
+    # Maximum number of outbound peers to connect to, excluding persistent peers
+    max_num_outbound_peers = {{ .Values.config.tendermint.p2p.maxNumOutboundPeers }}
+
+    # List of node IDs, to which a connection will be (re)established ignoring any existing limits
+    unconditional_peer_ids = "{{ .Values.config.tendermint.p2p.unconditionalPeerIds }}"
+
+    # Maximum pause when redialing a persistent peer (if zero, exponential backoff is used)
+    persistent_peers_max_dial_period = "{{ .Values.config.tendermint.p2p.persistentPeersMaxDialPeriod }}"
+
+    # Time to wait before flushing messages out on the connection
+    flush_throttle_timeout = "{{ .Values.config.tendermint.p2p.flushThrottleTimeout }}"
+
+    # Maximum size of a message packet payload, in bytes
+    max_packet_msg_payload_size = {{ .Values.config.tendermint.p2p.maxPacketMsgPayloadSize }}
+
+    # Rate at which packets can be sent, in bytes/second
+    send_rate = {{ .Values.config.tendermint.p2p.sendRate }}
+
+    # Rate at which packets can be received, in bytes/second
+    recv_rate = {{ .Values.config.tendermint.p2p.recvRate }}
+
+    # Set true to enable the peer-exchange reactor
+    pex = {{ .Values.config.tendermint.p2p.pex }}
+
+    # Seed mode, in which node constantly crawls the network and looks for peers.
+    seed_mode = {{ .Values.config.tendermint.p2p.seedMode }}
+
+    # Comma separated list of peer IDs to keep private (will not be gossiped to other peers)
+    private_peer_ids = "{{ .Values.config.tendermint.p2p.privatePeerIds }}"
+
+    # Toggle to disable guard against peers connecting from the same ip.
+    allow_duplicate_ip = {{ .Values.config.tendermint.p2p.allowDuplicateIp }}
+
+    # Peer connection configuration.
+    handshake_timeout = "{{ .Values.config.tendermint.p2p.handshakeTimeout }}"
+    dial_timeout = "{{ .Values.config.tendermint.p2p.dialTimeout }}"
+
+    #######################################################
+    ###          Mempool Configuration Option          ###
+    #######################################################
+    [mempool]
+
+    version = "{{ .Values.config.tendermint.mempool.version }}"
+    recheck = {{ .Values.config.tendermint.mempool.recheck }}
+    broadcast = {{ .Values.config.tendermint.mempool.broadcast }}
+    wal_dir = "{{ .Values.config.tendermint.mempool.walDir }}"
+    size = {{ .Values.config.tendermint.mempool.size }}
+    max_txs_bytes = {{ .Values.config.tendermint.mempool.maxTxsBytes }}
+    cache_size = {{ .Values.config.tendermint.mempool.cacheSize }}
+    keep-invalid-txs-in-cache = {{ .Values.config.tendermint.mempool.keepInvalidTxsInCache }}
+    max_tx_bytes = {{ .Values.config.tendermint.mempool.maxTxBytes }}
+    max_batch_bytes = {{ .Values.config.tendermint.mempool.maxBatchBytes }}
+    ttl-duration = "{{ .Values.config.tendermint.mempool.ttlDuration }}"
+    ttl-num-blocks = {{ .Values.config.tendermint.mempool.ttlNumBlocks }}
+
+    #######################################################
+    ###         Consensus Configuration Options         ###
+    #######################################################
+    [consensus]
+
+    wal_file = "{{ .Values.config.tendermint.consensus.walFile }}"
+    timeout_propose = "{{ .Values.config.tendermint.consensus.timeoutPropose }}"
+    timeout_propose_delta = "{{ .Values.config.tendermint.consensus.timeoutProposeDelta }}"
+    timeout_prevote = "{{ .Values.config.tendermint.consensus.timeoutPrevote }}"
+    timeout_prevote_delta = "{{ .Values.config.tendermint.consensus.timeoutPrevoteDelta }}"
+    timeout_precommit = "{{ .Values.config.tendermint.consensus.timeoutPrecommit }}"
+    timeout_precommit_delta = "{{ .Values.config.tendermint.consensus.timeoutPrecommitDelta }}"
+    timeout_commit = "{{ .Values.config.tendermint.consensus.timeoutCommit }}"
+    double_sign_check_height = {{ .Values.config.tendermint.consensus.doubleSignCheckHeight }}
+    skip_timeout_commit = {{ .Values.config.tendermint.consensus.skipTimeoutCommit }}
+    create_empty_blocks = {{ .Values.config.tendermint.consensus.createEmptyBlocks }}
+    create_empty_blocks_interval = "{{ .Values.config.tendermint.consensus.createEmptyBlocksInterval }}"
+    peer_gossip_sleep_duration = "{{ .Values.config.tendermint.consensus.peerGossipSleepDuration }}"
+    peer_query_maj23_sleep_duration = "{{ .Values.config.tendermint.consensus.peerQueryMaj23SleepDuration }}"
+
+    #######################################################
+    ###       Instrumentation Configuration Options     ###
+    #######################################################
+    [instrumentation]
+
+    prometheus = {{ .Values.config.tendermint.instrumentation.prometheus }}
+    prometheus_listen_addr = "{{ .Values.config.tendermint.instrumentation.prometheusListenAddr }}"
+    max_open_connections = {{ .Values.config.tendermint.instrumentation.maxOpenConnections }}
+    namespace = "{{ .Values.config.tendermint.instrumentation.namespace }}"
+
+  consume-genesis.sh: |
+    #!/usr/bin/env bash
+    set -e
+
+    # Download genesis file if it doesn't exist
+    if [ ! -f /home/axelard/.axelar/config/genesis.json ]; then
+        echo "Downloading genesis file..."
+        {{- if eq .Values.network.name "testnet" }}
+        curl -s https://raw.githubusercontent.com/axelarnetwork/axelarate-community/main/resources/testnet/genesis.json > /home/axelard/.axelar/config/genesis.json
+        {{- else if eq .Values.network.name "mainnet" }}
+        curl -s https://raw.githubusercontent.com/axelarnetwork/axelarate-community/main/resources/mainnet/genesis.json > /home/axelard/.axelar/config/genesis.json
+        {{- end }}
+    fi
+
+    # Download seeds if they don't exist
+    if [ ! -f /home/axelard/shared/seeds.txt ]; then
+        echo "Downloading seeds..."
+        {{- if eq .Values.network.name "testnet" }}
+        curl -s https://raw.githubusercontent.com/axelarnetwork/axelarate-community/main/resources/testnet/seeds.txt > /home/axelard/shared/seeds.txt
+        {{- else if eq .Values.network.name "mainnet" }}
+        curl -s https://raw.githubusercontent.com/axelarnetwork/axelarate-community/main/resources/mainnet/seeds.txt > /home/axelard/shared/seeds.txt
+        {{- end }}
+    fi

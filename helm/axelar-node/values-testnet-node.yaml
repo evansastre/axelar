@@ -1,0 +1,68 @@
+# Values for Axelar testnet node deployment
+
+# Deployment type
+deploymentType: "node"
+
+# Network configuration
+network:
+  name: "testnet"
+
+# Node configuration
+node:
+  moniker: "axelar-testnet-helm-node"
+  
+  # Resource requirements for testnet
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+
+  # Storage configuration
+  storage:
+    size: "100Gi"  # Smaller for testnet
+    storageClass: "standard"
+
+# Secrets (set these via --set or separate secret)
+secrets:
+  keyringPassword: ""  # Set via: --set secrets.keyringPassword=your-password
+
+# Service configuration
+service:
+  type: ClusterIP
+  p2pService:
+    enabled: true
+    type: NodePort
+
+# Ingress (optional)
+ingress:
+  enabled: false
+
+# Monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+
+# Health checks
+healthChecks:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 60  # Faster for testnet
+  readiness:
+    enabled: true
+    initialDelaySeconds: 30
+
+# Configuration optimized for testnet
+config:
+  app:
+    pruning: "default"  # Keep some history
+    telemetry:
+      enabled: true
+      prometheusRetentionTime: 60
+  
+  tendermint:
+    logLevel: "info"
+    logFormat: "json"

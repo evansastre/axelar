@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: axelar-validator-data
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: validator-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: axelar-tofnd-data
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: tofnd-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: axelar-validator-shared-data
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: shared-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

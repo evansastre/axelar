@@ -1,0 +1,97 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-testnet-nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-testnet
+    app.kubernetes.io/component: nodes
+    environment: testnet
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: gitops/environments/testnet
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: axelar-testnet
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  info:
+    - name: 'Description'
+      value: 'Axelar Testnet Nodes'
+    - name: 'Environment'
+      value: 'testnet'
+    - name: 'Network'
+      value: 'axelar-testnet-lisbon-3'
+  ignoreDifferences:
+    - group: blockchain.axelar.network
+      kind: AxelarNode
+      jsonPointers:
+        - /status
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-testnet-monitoring
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-testnet-monitoring
+    app.kubernetes.io/component: monitoring
+    environment: testnet
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: monitoring/testnet
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: axelar-monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5
+  info:
+    - name: 'Description'
+      value: 'Monitoring stack for Axelar testnet nodes'

@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service
+  annotations:
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: rpc
+      port: {{ .Values.service.ports.rpc }}
+      targetPort: {{ .Values.service.ports.rpc }}
+      protocol: TCP
+    - name: p2p
+      port: {{ .Values.service.ports.p2p }}
+      targetPort: {{ .Values.service.ports.p2p }}
+      protocol: TCP
+    - name: abci
+      port: {{ .Values.service.ports.abci }}
+      targetPort: {{ .Values.service.ports.abci }}
+      protocol: TCP
+    - name: api
+      port: {{ .Values.service.ports.api }}
+      targetPort: {{ .Values.service.ports.api }}
+      protocol: TCP
+    - name: grpc
+      port: {{ .Values.service.ports.grpc }}
+      targetPort: {{ .Values.service.ports.grpc }}
+      protocol: TCP
+    - name: grpc-web
+      port: {{ .Values.service.ports.grpcWeb }}
+      targetPort: {{ .Values.service.ports.grpcWeb }}
+      protocol: TCP
+    - name: prometheus
+      port: {{ .Values.service.ports.prometheus }}
+      targetPort: {{ .Values.service.ports.prometheus }}
+      protocol: TCP
+  selector:
+    {{- include "axelar-node.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.deploymentType }}
+---
+{{- if .Values.service.p2pService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "axelar-node.fullname" . }}-p2p
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: p2p-service
+spec:
+  type: {{ .Values.service.p2pService.type }}
+  ports:
+    - name: p2p
+      port: {{ .Values.service.ports.p2p }}
+      targetPort: {{ .Values.service.ports.p2p }}
+      protocol: TCP
+      {{- if .Values.service.p2pService.nodePort }}
+      nodePort: {{ .Values.service.p2pService.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "axelar-node.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.deploymentType }}
+{{- end }}

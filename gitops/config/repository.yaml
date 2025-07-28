@@ -1,0 +1,24 @@
+# Repository Configuration for GitOps
+# Update this file with your actual repository URL before deploying
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitops-config
+  namespace: argocd
+data:
+  # Update this URL to match your actual repository
+  repository.url: "https://github.com/YOUR_USERNAME/axelar-k8s-deployment"
+  
+  # Alternative repository URLs (uncomment and use as needed)
+  # repository.url: "https://github.com/evanshsl/axelar-k8s-deployment"
+  # repository.url: "https://github.com/axelar-network/axelar-k8s-deployment"
+  # repository.url: "git@github.com:YOUR_USERNAME/axelar-k8s-deployment.git"
+  
+  # Branch/revision to track
+  repository.revision: "HEAD"
+  
+  # Repository credentials (if private repo)
+  # repository.username: ""
+  # repository.password: ""
+  # repository.sshPrivateKey: ""

@@ -1,0 +1,22 @@
+apiVersion: v2
+name: axelar-node
+description: A Helm chart for deploying Axelar blockchain nodes and validators on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "v0.35.5"
+home: https://axelar.network
+sources:
+  - https://github.com/axelarnetwork/axelar-core
+  - https://github.com/axelarnetwork/axelarate-community
+keywords:
+  - blockchain
+  - cosmos
+  - axelar
+  - validator
+  - node
+maintainers:
+  - name: Axelar DevOps Team
+    email: devops@axelar.network
+annotations:
+  category: Blockchain
+  licenses: Apache-2.0

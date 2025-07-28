@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: axelar-testnet
+  labels:
+    name: axelar-testnet
+    environment: testnet
+    network: axelar-testnet-lisbon-3
+    managed-by: argocd
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: namespace
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/hook: PreSync

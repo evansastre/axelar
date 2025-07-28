@@ -1,0 +1,94 @@
+# Test configuration for Axelar Kubernetes deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axelar-test-config
+  namespace: axelar-testnet
+data:
+  test-script.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Starting Axelar node tests..."
+    
+    # Test 1: Check if node is running
+    echo "Test 1: Checking if node is running..."
+    kubectl get pods -n axelar-testnet -l app.kubernetes.io/name=axelar
+    
+    # Test 2: Check node health
+    echo "Test 2: Checking node health..."
+    kubectl port-forward svc/axelar-node-service 26657:26657 -n axelar-testnet &
+    PF_PID=$!
+    sleep 5
+    
+    if curl -f -s http://localhost:26657/health > /dev/null; then
+        echo "✅ Health check passed"
+    else
+        echo "❌ Health check failed"
+        exit 1
+    fi
+    
+    # Test 3: Check node status
+    echo "Test 3: Checking node status..."
+    STATUS=$(curl -s http://localhost:26657/status)
+    if echo "$STATUS" | grep -q "catching_up"; then
+        echo "✅ Node status endpoint working"
+    else
+        echo "❌ Node status endpoint failed"
+        exit 1
+    fi
+    
+    # Test 4: Check Prometheus metrics
+    echo "Test 4: Checking Prometheus metrics..."
+    kubectl port-forward svc/axelar-node-service 26660:26660 -n axelar-testnet &
+    PF_PID2=$!
+    sleep 5
+    
+    if curl -f -s http://localhost:26660/metrics | grep -q "tendermint_"; then
+        echo "✅ Prometheus metrics available"
+    else
+        echo "❌ Prometheus metrics failed"
+        exit 1
+    fi
+    
+    # Test 5: Check API endpoint
+    echo "Test 5: Checking API endpoint..."
+    kubectl port-forward svc/axelar-node-service 1317:1317 -n axelar-testnet &
+    PF_PID3=$!
+    sleep 5
+    
+    if curl -f -s http://localhost:1317/cosmos/base/tendermint/v1beta1/node_info > /dev/null; then
+        echo "✅ API endpoint working"
+    else
+        echo "❌ API endpoint failed"
+        exit 1
+    fi
+    
+    # Cleanup
+    kill $PF_PID $PF_PID2 $PF_PID3 2>/dev/null || true
+    
+    echo "All tests passed! ✅"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: axelar-node-test
+  namespace: axelar-testnet
+spec:
+  template:
+    spec:
+      containers:
+      - name: test
+        image: curlimages/curl:latest
+        command: ["/bin/sh"]
+        args: ["/test/test-script.sh"]
+        volumeMounts:
+        - name: test-script
+          mountPath: /test
+      volumes:
+      - name: test-script
+        configMap:
+          name: axelar-test-config
+          defaultMode: 0755
+      restartPolicy: Never
+  backoffLimit: 3

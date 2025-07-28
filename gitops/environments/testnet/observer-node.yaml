@@ -1,0 +1,77 @@
+apiVersion: blockchain.axelar.network/v1alpha1
+kind: AxelarNode
+metadata:
+  name: observer-node
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: observer
+    environment: testnet
+    node-type: observer
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+spec:
+  nodeType: observer
+  network: testnet
+  moniker: "axelar-testnet-observer"
+  
+  image:
+    repository: axelarnet/axelar-core
+    tag: v0.35.5
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  
+  storage:
+    size: "100Gi"
+    storageClass: "standard"
+    backup:
+      enabled: true
+      schedule: "0 3 * * *"  # 3 AM daily
+      retention: "7d"
+  
+  networking:
+    p2p:
+      port: 26656
+      persistentPeers: []
+      seeds:
+        - "ade4d8bc8cbe014af6ebdf3cb7b1e9ad36f412c0@seeds.polkachu.com:15956"
+        - "20e1000e88125698264454a884812746c2eb4807@seeds.lavenderfive.com:15956"
+    rpc:
+      enabled: true
+      port: 26657
+      cors: false
+    api:
+      enabled: true
+      port: 1317
+  
+  monitoring:
+    enabled: true
+    prometheus:
+      port: 26660
+      path: "/metrics"
+    alerts:
+      enabled: true
+  
+  upgrade:
+    strategy: rolling
+    autoUpgrade: true  # Allow auto-upgrade for testnet
+    preUpgradeBackup: true
+    rollbackOnFailure: true
+  
+  security:
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1001
+      fsGroup: 1001
+    networkPolicies: true
+    secretManagement:
+      provider: kubernetes
+      autoRotation: false

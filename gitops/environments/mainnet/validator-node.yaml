@@ -1,0 +1,94 @@
+apiVersion: blockchain.axelar.network/v1alpha1
+kind: AxelarNode
+metadata:
+  name: validator-node
+  namespace: axelar-mainnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: validator
+    environment: mainnet
+    node-type: validator
+    criticality: critical
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: RespectIgnoreDifferences=true,SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+spec:
+  nodeType: validator
+  network: mainnet
+  moniker: "axelar-mainnet-validator"
+  
+  image:
+    repository: axelarnet/axelar-core
+    tag: v0.35.5
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "8"
+      memory: "16Gi"
+    limits:
+      cpu: "16"
+      memory: "32Gi"
+  
+  storage:
+    size: "2Ti"
+    storageClass: "fast-ssd"
+    backup:
+      enabled: true
+      schedule: "0 1 * * *"  # 1 AM daily
+      retention: "30d"
+  
+  validator:
+    enabled: true
+    keyManagement:
+      autoRotation: false  # Manual for production
+      rotationSchedule: "0 0 1 * *"  # Monthly (manual trigger)
+      backupKeys: true
+    slashing:
+      protection: true
+      maxMissedBlocks: 50
+  
+  networking:
+    p2p:
+      port: 26656
+      externalAddress: ""  # Will be auto-detected or set via external config
+      persistentPeers:
+        - "f4f605d60b8ffaaf15240564e58a81103510631c@159.203.9.164:26656"
+        - "4f2441bc0a80148efb5e9c6c5a8b5b3c7b5b5b5b@165.227.138.48:26656"
+      seeds:
+        - "ade4d8bc8cbe014af6ebdf3cb7b1e9ad36f412c0@seeds.polkachu.com:15956"
+    rpc:
+      enabled: false  # Disable public RPC for validator security
+      port: 26657
+      cors: false
+    api:
+      enabled: false  # Disable public API for validator security
+      port: 1317
+  
+  monitoring:
+    enabled: true
+    prometheus:
+      port: 26660
+      path: "/metrics"
+    alerts:
+      enabled: true
+      slack:
+        webhook: ""  # Set via external secret
+        channel: "#axelar-mainnet-alerts"
+  
+  upgrade:
+    strategy: manual  # Manual upgrades for validators
+    autoUpgrade: false
+    preUpgradeBackup: true
+    rollbackOnFailure: true
+  
+  security:
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1001
+      fsGroup: 1001
+    networkPolicies: true
+    secretManagement:
+      provider: vault  # Use Vault for production
+      autoRotation: true

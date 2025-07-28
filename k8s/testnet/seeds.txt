@@ -1,0 +1,3 @@
+# Axelar Testnet Seeds
+# These will be downloaded automatically by the consume-genesis.sh script
+# This file serves as a placeholder for the kustomization

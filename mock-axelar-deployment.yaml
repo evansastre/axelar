@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axelar-config
+  namespace: axelar-testnet
+data:
+  info: "Mock Axelar node for ARM64 testing"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-axelar-node
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: axelar
+      app.kubernetes.io/component: node
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: axelar
+        app.kubernetes.io/component: node
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "26660"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: mock-axelar-node
+        image: mock-axelar:latest
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - name: rpc
+          containerPort: 26657
+          protocol: TCP
+        - name: prometheus
+          containerPort: 26660
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 26660
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 26660
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: axelar-node-service
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "26660"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: rpc
+    port: 26657
+    targetPort: 26660  # Mock server runs on 26660
+    protocol: TCP
+  - name: prometheus
+    port: 26660
+    targetPort: 26660
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: node

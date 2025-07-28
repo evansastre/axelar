@@ -1,0 +1,302 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "axelar-node.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "axelar-node.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.deploymentType }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "axelar-node.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ .Values.deploymentType }}
+  template:
+    metadata:
+      labels:
+        {{- include "axelar-node.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: {{ .Values.deploymentType }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.service.ports.prometheus }}"
+        prometheus.io/path: "/metrics"
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "axelar-node.serviceAccountName" . }}
+      securityContext:
+        runAsUser: {{ .Values.security.runAsUser }}
+        runAsGroup: {{ .Values.security.runAsGroup }}
+        fsGroup: {{ .Values.security.fsGroup }}
+      {{- if .Values.initContainers.permissions.enabled }}
+      initContainers:
+        - name: init-permissions
+          image: {{ .Values.initContainers.permissions.image }}
+          command: ['sh', '-c']
+          args:
+            - |
+              chown -R {{ .Values.security.runAsUser }}:{{ .Values.security.runAsGroup }} /home/axelard/.axelar
+              chown -R {{ .Values.security.runAsUser }}:{{ .Values.security.runAsGroup }} /home/axelard/shared
+              chmod -R 755 /home/axelard/.axelar
+              chmod -R 755 /home/axelard/shared
+              {{- if eq .Values.deploymentType "validator" }}
+              chown -R {{ .Values.security.runAsUser }}:{{ .Values.security.runAsGroup }} /home/axelard/.tofnd
+              chmod -R 755 /home/axelard/.tofnd
+              {{- end }}
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: {{ .Values.deploymentType }}-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+            {{- if eq .Values.deploymentType "validator" }}
+            - name: tofnd-data
+              mountPath: /home/axelard/.tofnd
+            {{- end }}
+        {{- if .Values.initContainers.setupConfig.enabled }}
+        - name: setup-config
+          image: {{ .Values.initContainers.setupConfig.image }}
+          command: ['sh', '-c']
+          args:
+            - |
+              # Copy configuration files
+              cp /config/app.toml /home/axelard/.axelar/config/app.toml
+              cp /config/config.toml /home/axelard/.axelar/config/config.toml
+              cp /config/consume-genesis.sh /home/axelard/shared/consume-genesis.sh
+              chmod +x /home/axelard/shared/consume-genesis.sh
+              
+              # Create necessary directories
+              mkdir -p /home/axelard/.axelar/config
+              mkdir -p /home/axelard/.axelar/data
+              mkdir -p /home/axelard/.axelar/keyring-file
+              
+              # Set proper ownership
+              chown -R {{ .Values.security.runAsUser }}:{{ .Values.security.runAsGroup }} /home/axelard/.axelar
+              chown -R {{ .Values.security.runAsUser }}:{{ .Values.security.runAsGroup }} /home/axelard/shared
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: {{ .Values.deploymentType }}-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+            - name: config-volume
+              mountPath: /config
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: axelar-{{ .Values.deploymentType }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["startNodeProc"]
+          env:
+            - name: HOME
+              value: "/home/axelard"
+            - name: START_REST
+              value: "true"
+            - name: PRESTART_SCRIPT
+              value: "/home/axelard/shared/consume-genesis.sh"
+            - name: CONFIG_PATH
+              value: "/home/axelard/shared/"
+            - name: NODE_MONIKER
+              value: {{ .Values.node.moniker | quote }}
+            - name: KEYRING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axelar-node.secretName" . }}
+                  key: keyring-password
+            - name: AXELARD_CHAIN_ID
+              value: {{ include "axelar-node.chainId" . | quote }}
+            - name: PEERS_FILE
+              value: "/home/axelard/shared/seeds.txt"
+            {{- if eq .Values.deploymentType "validator" }}
+            - name: AXELAR_MNEMONIC_PATH
+              value: "/home/axelard/shared/validator.txt"
+            - name: TENDERMINT_KEY_PATH
+              value: "/home/axelard/shared/tendermint.json"
+            {{- end }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.service.ports.rpc }}
+              protocol: TCP
+            - name: p2p
+              containerPort: {{ .Values.service.ports.p2p }}
+              protocol: TCP
+            - name: abci
+              containerPort: {{ .Values.service.ports.abci }}
+              protocol: TCP
+            - name: api
+              containerPort: {{ .Values.service.ports.api }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.service.ports.grpc }}
+              protocol: TCP
+            - name: grpc-web
+              containerPort: {{ .Values.service.ports.grpcWeb }}
+              protocol: TCP
+            - name: prometheus
+              containerPort: {{ .Values.service.ports.prometheus }}
+              protocol: TCP
+          {{- if .Values.healthChecks.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.liveness.path }}
+              port: {{ .Values.healthChecks.liveness.port }}
+            initialDelaySeconds: {{ .Values.healthChecks.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.healthChecks.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.readiness.path }}
+              port: {{ .Values.healthChecks.readiness.port }}
+            initialDelaySeconds: {{ .Values.healthChecks.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- if eq .Values.deploymentType "validator" }}
+            {{- toYaml .Values.validator.resources | nindent 12 }}
+            {{- else }}
+            {{- toYaml .Values.node.resources | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: {{ .Values.deploymentType }}-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            runAsUser: {{ .Values.security.runAsUser }}
+            runAsGroup: {{ .Values.security.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.security.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
+            capabilities:
+              {{- toYaml .Values.security.capabilities | nindent 14 }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- if eq .Values.deploymentType "validator" }}
+        - name: vald
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              sleep 60  # Wait for validator to start
+              exec vald-start
+          env:
+            - name: HOME
+              value: "/home/axelard"
+            - name: KEYRING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axelar-node.secretName" . }}
+                  key: keyring-password
+            - name: AXELARD_CHAIN_ID
+              value: {{ include "axelar-node.chainId" . | quote }}
+          resources:
+            {{- toYaml .Values.validator.vald.resources | nindent 12 }}
+          volumeMounts:
+            - name: {{ .Values.deploymentType }}-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+          securityContext:
+            runAsUser: {{ .Values.security.runAsUser }}
+            runAsGroup: {{ .Values.security.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.security.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
+            capabilities:
+              {{- toYaml .Values.security.capabilities | nindent 14 }}
+        - name: tofnd
+          image: "{{ .Values.tofndImage.registry }}/{{ .Values.tofndImage.repository }}:{{ .Values.tofndImage.tag }}"
+          imagePullPolicy: {{ .Values.tofndImage.pullPolicy }}
+          command: ["tofnd"]
+          args:
+            - "-m"
+            - "/home/axelard/shared/tofnd.txt"
+            - "-d"
+            - "/home/axelard/.tofnd"
+          env:
+            - name: TOFND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axelar-node.secretName" . }}
+                  key: tofnd-password
+          ports:
+            - name: tofnd
+              containerPort: 50051
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.validator.tofnd.resources | nindent 12 }}
+          volumeMounts:
+            - name: tofnd-data
+              mountPath: /home/axelard/.tofnd
+            - name: shared-data
+              mountPath: /home/axelard/shared
+          securityContext:
+            runAsUser: {{ .Values.security.runAsUser }}
+            runAsGroup: {{ .Values.security.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.security.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
+            capabilities:
+              {{- toYaml .Values.security.capabilities | nindent 14 }}
+        {{- end }}
+      volumes:
+        - name: {{ .Values.deploymentType }}-data
+          persistentVolumeClaim:
+            claimName: {{ include "axelar-node.fullname" . }}-{{ .Values.deploymentType }}-data
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: {{ include "axelar-node.fullname" . }}-shared-data
+        {{- if eq .Values.deploymentType "validator" }}
+        - name: tofnd-data
+          persistentVolumeClaim:
+            claimName: {{ include "axelar-node.fullname" . }}-tofnd-data
+        {{- end }}
+        - name: config-volume
+          configMap:
+            name: {{ include "axelar-node.fullname" . }}-config
+            defaultMode: 0755
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      restartPolicy: {{ .Values.restartPolicy }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}

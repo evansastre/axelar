@@ -1,0 +1,397 @@
+# Default values for axelar-node.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image configuration
+image:
+  registry: axelarnet
+  repository: axelar-core
+  tag: "v0.35.5"
+  pullPolicy: IfNotPresent
+
+# Tofnd image (for validators)
+tofndImage:
+  registry: axelarnet
+  repository: tofnd
+  tag: "v0.10.1"
+  pullPolicy: IfNotPresent
+
+# Deployment type: node or validator
+deploymentType: "node"  # Options: "node" or "validator"
+
+# Network configuration
+network:
+  name: "testnet"  # Options: "testnet" or "mainnet"
+  chainId: "axelar-testnet-lisbon-3"  # Will be auto-set based on network
+
+# Node configuration
+node:
+  moniker: "axelar-k8s-node"
+  
+  # Resource requirements
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "2"
+    limits:
+      memory: "8Gi"
+      cpu: "4"
+
+  # Storage configuration
+  storage:
+    size: "500Gi"
+    storageClass: ""
+    accessMode: "ReadWriteOnce"
+
+  # Shared storage for scripts and configs
+  sharedStorage:
+    size: "10Gi"
+    storageClass: ""
+    accessMode: "ReadWriteOnce"
+
+# Validator-specific configuration
+validator:
+  enabled: false
+  
+  # Resource requirements (higher than node)
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "4"
+    limits:
+      memory: "16Gi"
+      cpu: "8"
+
+  # Vald container resources
+  vald:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+
+  # Tofnd container resources
+  tofnd:
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "0.5"
+      limits:
+        memory: "2Gi"
+        cpu: "1"
+    
+    # Tofnd storage
+    storage:
+      size: "10Gi"
+      storageClass: ""
+      accessMode: "ReadWriteOnce"
+
+# Security configuration
+security:
+  runAsUser: 1000
+  runAsGroup: 1001
+  fsGroup: 1001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    rpc: 26657
+    p2p: 26656
+    abci: 26658
+    api: 1317
+    grpc: 9090
+    grpcWeb: 9091
+    prometheus: 26660
+
+  # P2P service (NodePort for external access)
+  p2pService:
+    enabled: true
+    type: NodePort
+    nodePort: 30656
+
+  # Annotations for service discovery
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "26660"
+    prometheus.io/path: "/metrics"
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: axelar-node.local
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 26657
+  tls: []
+  #  - secretName: axelar-node-tls
+  #    hosts:
+  #      - axelar-node.local
+
+# Secrets configuration
+secrets:
+  # Keyring password (required)
+  keyringPassword: ""
+  
+  # Tofnd password (required for validators)
+  tofndPassword: ""
+  
+  # Optional: provide existing secret name
+  existingSecret: ""
+  
+  # Keys for validators (base64 encoded)
+  validatorMnemonic: ""
+  tofndMnemonic: ""
+  tendermintKey: ""
+
+# Configuration files
+config:
+  # App configuration (app.toml)
+  app:
+    minimumGasPrices: "0.007uaxl"
+    pruning: "default"
+    pruningKeepRecent: "100"
+    pruningKeepEvery: "500"
+    pruningInterval: "10"
+    haltHeight: 0
+    haltTime: 0
+    minRetainBlocks: 0
+    interBlockCache: true
+    iavlCacheSize: 781250
+    
+    # Telemetry
+    telemetry:
+      enabled: true
+      prometheusRetentionTime: 60
+      enableHostname: false
+      enableHostnameLabel: false
+      enableServiceLabel: false
+    
+    # API
+    api:
+      enable: true
+      swagger: false
+      address: "tcp://0.0.0.0:1317"
+      maxOpenConnections: 1000
+      rpcReadTimeout: 10
+      rpcWriteTimeout: 0
+      rpcMaxBodyBytes: 1000000
+      enableUnsafeCors: false
+    
+    # gRPC
+    grpc:
+      enable: true
+      address: "0.0.0.0:9090"
+    
+    # gRPC Web
+    grpcWeb:
+      enable: true
+      address: "0.0.0.0:9091"
+      enableUnsafeCors: false
+
+  # Tendermint configuration (config.toml)
+  tendermint:
+    proxyApp: "tcp://127.0.0.1:26658"
+    fastSync: true
+    dbBackend: "goleveldb"
+    dbDir: "data"
+    logLevel: "info"
+    logFormat: "json"
+    
+    # RPC
+    rpc:
+      laddr: "tcp://0.0.0.0:26657"
+      corsAllowedOrigins: []
+      corsAllowedMethods: ["HEAD", "GET", "POST"]
+      corsAllowedHeaders: ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+      grpcLaddr: ""
+      grpcMaxOpenConnections: 900
+      unsafe: false
+      maxOpenConnections: 900
+      maxSubscriptionClients: 100
+      maxSubscriptionsPerClient: 5
+      timeoutBroadcastTxCommit: "10s"
+      maxBodyBytes: 1000000
+      maxHeaderBytes: 1048576
+      tlsCertFile: ""
+      tlsKeyFile: ""
+      pprofLaddr: "localhost:6060"
+    
+    # P2P
+    p2p:
+      laddr: "tcp://0.0.0.0:26656"
+      externalAddress: ""
+      seeds: ""
+      persistentPeers: ""
+      upnp: false
+      addrBookStrict: true
+      maxNumInboundPeers: 40
+      maxNumOutboundPeers: 10
+      unconditionalPeerIds: ""
+      persistentPeersMaxDialPeriod: "0s"
+      flushThrottleTimeout: "100ms"
+      maxPacketMsgPayloadSize: 1024
+      sendRate: 5120000
+      recvRate: 5120000
+      pex: true
+      seedMode: false
+      privatePeerIds: ""
+      allowDuplicateIp: false
+      handshakeTimeout: "20s"
+      dialTimeout: "3s"
+    
+    # Mempool
+    mempool:
+      version: "v0"
+      recheck: true
+      broadcast: true
+      walDir: ""
+      size: 5000
+      maxTxsBytes: 1073741824
+      cacheSize: 10000
+      keepInvalidTxsInCache: false
+      maxTxBytes: 1048576
+      maxBatchBytes: 0
+      ttlDuration: "0s"
+      ttlNumBlocks: 0
+    
+    # Consensus
+    consensus:
+      walFile: "data/cs.wal/wal"
+      timeoutPropose: "3s"
+      timeoutProposeDelta: "500ms"
+      timeoutPrevote: "1s"
+      timeoutPrevoteDelta: "500ms"
+      timeoutPrecommit: "1s"
+      timeoutPrecommitDelta: "500ms"
+      timeoutCommit: "5s"
+      doubleSignCheckHeight: 0
+      skipTimeoutCommit: false
+      createEmptyBlocks: true
+      createEmptyBlocksInterval: "0s"
+      peerGossipSleepDuration: "100ms"
+      peerQueryMaj23SleepDuration: "2s"
+    
+    # Instrumentation
+    instrumentation:
+      prometheus: true
+      prometheusListenAddr: ":26660"
+      maxOpenConnections: 3
+      namespace: "tendermint"
+
+# Health checks
+healthChecks:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    path: "/health"
+    port: 26657
+  
+  readiness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    path: "/status"
+    port: 26657
+
+# Monitoring
+monitoring:
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: "30s"
+    scrapeTimeout: "10s"
+    labels: {}
+    annotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Node affinity and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC
+rbac:
+  create: true
+
+# Init containers
+initContainers:
+  # Permission fixer
+  permissions:
+    enabled: true
+    image: busybox:1.35
+  
+  # Config setup
+  setupConfig:
+    enabled: true
+    image: busybox:1.35
+
+# Additional environment variables
+extraEnvVars: []
+# - name: CUSTOM_VAR
+#   value: "custom_value"
+
+# Additional volumes
+extraVolumes: []
+# - name: custom-volume
+#   configMap:
+#     name: custom-config
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: custom-volume
+#   mountPath: /custom/path
+
+# Lifecycle hooks
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "sleep 30"]
+
+# Priority class
+priorityClassName: ""
+
+# Restart policy
+restartPolicy: Always
+
+# Termination grace period
+terminationGracePeriodSeconds: 30

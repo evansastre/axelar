@@ -1,0 +1,11 @@
+FROM python:3.11-alpine
+
+WORKDIR /app
+
+COPY mock-axelar-metrics.py .
+
+RUN chmod +x mock-axelar-metrics.py
+
+EXPOSE 26660 26657
+
+CMD ["python3", "mock-axelar-metrics.py"]

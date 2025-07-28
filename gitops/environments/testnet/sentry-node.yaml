@@ -1,0 +1,78 @@
+apiVersion: blockchain.axelar.network/v1alpha1
+kind: AxelarNode
+metadata:
+  name: sentry-node
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: sentry
+    environment: testnet
+    node-type: sentry
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  nodeType: sentry
+  network: testnet
+  moniker: "axelar-testnet-sentry"
+  
+  image:
+    repository: axelarnet/axelar-core
+    tag: v0.35.5
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  
+  storage:
+    size: "200Gi"
+    storageClass: "standard"
+    backup:
+      enabled: true
+      schedule: "0 2 * * *"  # 2 AM daily
+      retention: "14d"
+  
+  networking:
+    p2p:
+      port: 26656
+      persistentPeers:
+        - "f4f605d60b8ffaaf15240564e58a81103510631c@159.203.9.164:26656"
+        - "4f2441bc0a80148efb5e9c6c5a8b5b3c7b5b5b5b@165.227.138.48:26656"
+      seeds:
+        - "ade4d8bc8cbe014af6ebdf3cb7b1e9ad36f412c0@seeds.polkachu.com:15956"
+        - "20e1000e88125698264454a884812746c2eb4807@seeds.lavenderfive.com:15956"
+    rpc:
+      enabled: true
+      port: 26657
+      cors: false
+    api:
+      enabled: true
+      port: 1317
+  
+  monitoring:
+    enabled: true
+    prometheus:
+      port: 26660
+      path: "/metrics"
+    alerts:
+      enabled: true
+  
+  upgrade:
+    strategy: rolling
+    autoUpgrade: true
+    preUpgradeBackup: true
+    rollbackOnFailure: true
+  
+  security:
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1001
+      fsGroup: 1001
+    networkPolicies: true
+    secretManagement:
+      provider: kubernetes
+      autoRotation: false

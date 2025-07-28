@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    name: argocd
+    app.kubernetes.io/name: argocd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable insecure mode for easier local development
+  server.insecure: "true"
+  # Enable application in any namespace
+  application.namespaces: "*"
+  # Enable server side apply
+  server.enable.proxy.extension: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable anonymous access for demo purposes
+  # In production, configure proper RBAC
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:admin, certificates, *, *, allow
+    p, role:admin, projects, *, *, allow
+    p, role:admin, accounts, *, *, allow
+    p, role:admin, gpgkeys, *, *, allow
+    p, role:admin, logs, *, *, allow
+    p, role:admin, exec, *, *, allow
+    g, argocd-admins, role:admin
+  
+  # Repository configuration - Update with your actual repository
+  repositories: |
+    - type: git
+      url: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+      name: axelar-k8s-deployment
+    - type: git
+      url: https://github.com/axelar-network/axelar-core
+      name: axelar-core
+    - type: helm
+      url: https://charts.bitnami.com/bitnami
+      name: bitnami
+    - type: helm
+      url: https://prometheus-community.github.io/helm-charts
+      name: prometheus-community
+  
+  # Application configuration
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Resource customizations for Axelar resources
+  resource.customizations: |
+    blockchain.axelar.network/AxelarNode:
+      health.lua: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Running" then
+            hs.status = "Healthy"
+            hs.message = "AxelarNode is running"
+          elseif obj.status.phase == "Syncing" then
+            hs.status = "Progressing"
+            hs.message = "AxelarNode is syncing"
+          elseif obj.status.phase == "Failed" then
+            hs.status = "Degraded"
+            hs.message = "AxelarNode has failed"
+          else
+            hs.status = "Progressing"
+            hs.message = "AxelarNode is " .. obj.status.phase
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "AxelarNode status unknown"
+        end
+        return hs
+    blockchain.axelar.network/AxelarNetwork:
+      health.lua: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Active" then
+            hs.status = "Healthy"
+            hs.message = "AxelarNetwork is active"
+          elseif obj.status.phase == "Upgrading" then
+            hs.status = "Progressing"
+            hs.message = "AxelarNetwork is upgrading"
+          elseif obj.status.phase == "Degraded" then
+            hs.status = "Degraded"
+            hs.message = "AxelarNetwork is degraded"
+          else
+            hs.status = "Progressing"
+            hs.message = "AxelarNetwork is " .. obj.status.phase
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "AxelarNetwork status unknown"
+        end
+        return hs
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-secret
+    app.kubernetes.io/part-of: argocd
+type: Opaque
+data:
+  # Default admin password: admin123
+  # Generated with: echo -n 'admin123' | bcrypt-tool hash
+  admin.password: JDJhJDEwJGVqSjBXVVBHdVBGdVBGdVBGdVBGdU9wUUlRSVFJUUlRSVFJUUlRSVFJUUlRSVFJUUlR
+  admin.passwordMtime: MjAyNC0wMS0wMVQwMDowMDowMFo=
+---
+# Install ArgoCD using the official installation manifest
+# This is a simplified version - in production, use the full manifest
+apiVersion: kustomization.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+- https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+patchesStrategicMerge:
+- |
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: argocd-cmd-params-cm
+    namespace: argocd
+  data:
+    server.insecure: "true"
+    application.namespaces: "*"

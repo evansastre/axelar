@@ -1,0 +1,104 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-mainnet-validators
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-mainnet
+    app.kubernetes.io/component: validators
+    environment: mainnet
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: gitops/environments/mainnet
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: axelar-mainnet
+  syncPolicy:
+    # Manual sync for production - no automated changes
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 20  # Keep more history for production
+  info:
+    - name: 'Description'
+      value: 'Axelar Mainnet Validators - PRODUCTION'
+    - name: 'Environment'
+      value: 'mainnet'
+    - name: 'Network'
+      value: 'axelar-dojo-1'
+    - name: 'Warning'
+      value: 'Manual sync only - no automated deployments'
+  ignoreDifferences:
+    - group: blockchain.axelar.network
+      kind: AxelarNode
+      jsonPointers:
+        - /status
+        - /metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+        - /status
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: axelar-mainnet-network
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: axelar-mainnet-network
+    app.kubernetes.io/component: network
+    environment: mainnet
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: axelar
+  source:
+    # UPDATE THIS URL: Replace with your actual repository URL
+    repoURL: https://github.com/YOUR_USERNAME/axelar-k8s-deployment
+    targetRevision: HEAD
+    path: gitops/environments/mainnet/network
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: axelar-mainnet
+  syncPolicy:
+    # Manual sync for network-wide changes
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 2
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
+  revisionHistoryLimit: 50  # Keep extensive history for network changes
+  info:
+    - name: 'Description'
+      value: 'Axelar Mainnet Network Configuration'
+    - name: 'Critical'
+      value: 'Network-wide settings - review carefully before sync'

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axelar-node
+  namespace: axelar-testnet
+spec:
+  template:
+    spec:
+      containers:
+        - name: axelar-node
+          env:
+            - name: AXELARD_CHAIN_ID
+              value: "axelar-testnet-lisbon-3"
+            - name: NODE_MONIKER
+              value: "axelar-testnet-k8s-node"
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "8Gi"
+              cpu: "4"

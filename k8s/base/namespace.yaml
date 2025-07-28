@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: axelar-testnet
+  labels:
+    name: axelar-testnet
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: blockchain-node
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: axelar-mainnet
+  labels:
+    name: axelar-mainnet
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: blockchain-node

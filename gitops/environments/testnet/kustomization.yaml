@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: axelar-testnet
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: axelar-testnet
+
+resources:
+  - namespace.yaml
+  - observer-node.yaml
+  - sentry-node.yaml
+  - network.yaml
+
+labels:
+  - pairs:
+      environment: testnet
+      network: axelar-testnet-lisbon-3
+      managed-by: argocd
+
+images:
+  - name: axelarnet/axelar-core
+    newTag: v0.35.5
+
+configMapGenerator:
+  - name: testnet-config
+    literals:
+      - CHAIN_ID=axelar-testnet-lisbon-3
+      - NETWORK=testnet
+      - ENVIRONMENT=testnet
+    options:
+      disableNameSuffixHash: true
+
+secretGenerator:
+  - name: testnet-secrets
+    literals:
+      - keyring-password=testnet-password-change-me
+    type: Opaque
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - target:
+      kind: AxelarNode
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/cpu
+        value: "1"
+      - op: replace
+        path: /spec/resources/requests/memory
+        value: "2Gi"
+      - op: replace
+        path: /spec/storage/size
+        value: "100Gi"
+
+replicas:
+  - name: observer-node
+    count: 2
+  - name: sentry-node
+    count: 1
+
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "2"
+  config.kubernetes.io/origin: |
+    path: gitops/environments/testnet/kustomization.yaml
+    repo: https://github.com/YOUR_USERNAME/axelar-k8s-deployment

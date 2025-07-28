@@ -1,0 +1,183 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: axelarnetworks.blockchain.axelar.network
+  labels:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: crd
+spec:
+  group: blockchain.axelar.network
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              # Network Configuration
+              networkName:
+                type: string
+                enum: ["mainnet", "testnet"]
+              chainId:
+                type: string
+              
+              # Genesis Configuration
+              genesis:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  checksum:
+                    type: string
+                  autoUpdate:
+                    type: boolean
+                    default: false
+              
+              # Seed and Peer Configuration
+              seeds:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    address:
+                      type: string
+                    provider:
+                      type: string
+              
+              persistentPeers:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    address:
+                      type: string
+                    provider:
+                      type: string
+              
+              # Upgrade Configuration
+              upgrades:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    height:
+                      type: integer
+                    version:
+                      type: string
+                    info:
+                      type: string
+                    scheduled:
+                      type: boolean
+                      default: false
+              
+              # Network Monitoring
+              monitoring:
+                type: object
+                properties:
+                  healthCheck:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      interval:
+                        type: string
+                        default: "30s"
+                      endpoints:
+                        type: array
+                        items:
+                          type: string
+                  metrics:
+                    type: object
+                    properties:
+                      aggregation:
+                        type: boolean
+                        default: true
+                      retention:
+                        type: string
+                        default: "30d"
+            
+            required: ["networkName", "chainId"]
+          
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["Initializing", "Active", "Upgrading", "Degraded"]
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              networkStats:
+                type: object
+                properties:
+                  totalNodes:
+                    type: integer
+                  activeValidators:
+                    type: integer
+                  currentHeight:
+                    type: integer
+                  averageBlockTime:
+                    type: string
+              lastUpgrade:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  height:
+                    type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+                  success:
+                    type: boolean
+    additionalPrinterColumns:
+    - name: Network
+      type: string
+      jsonPath: .spec.networkName
+    - name: Chain-ID
+      type: string
+      jsonPath: .spec.chainId
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Nodes
+      type: integer
+      jsonPath: .status.networkStats.totalNodes
+    - name: Validators
+      type: integer
+      jsonPath: .status.networkStats.activeValidators
+    - name: Height
+      type: integer
+      jsonPath: .status.networkStats.currentHeight
+  scope: Namespaced
+  names:
+    plural: axelarnetworks
+    singular: axelarnetwork
+    kind: AxelarNetwork
+    shortNames:
+    - axnet
+    - axnetwork

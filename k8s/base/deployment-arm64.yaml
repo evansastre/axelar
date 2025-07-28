@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axelar-node
+  namespace: axelar-testnet
+  labels:
+    app.kubernetes.io/name: axelar
+    app.kubernetes.io/component: blockchain-node
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: axelar
+      app.kubernetes.io/component: blockchain-node
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: axelar
+        app.kubernetes.io/component: blockchain-node
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "26660"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1001
+        fsGroup: 1001
+      initContainers:
+        - name: init-permissions
+          image: busybox:1.35
+          command: ['sh', '-c']
+          args:
+            - |
+              chown -R 1000:1001 /home/axelard/.axelar
+              chown -R 1000:1001 /home/axelard/shared
+              chmod -R 755 /home/axelard/.axelar
+              chmod -R 755 /home/axelard/shared
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: axelar-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+      containers:
+        - name: axelar-node
+          # Use mock image for ARM64 compatibility
+          image: mock-axelar:latest
+          imagePullPolicy: Never
+          env:
+            - name: HOME
+              value: "/home/axelard"
+            - name: KEYRING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: axelar-secrets
+                  key: keyring-password
+            - name: NODE_MONIKER
+              value: "axelar-k8s-node"
+          ports:
+            - name: rpc
+              containerPort: 26657
+              protocol: TCP
+            - name: p2p
+              containerPort: 26656
+              protocol: TCP
+            - name: abci
+              containerPort: 26658
+              protocol: TCP
+            - name: api
+              containerPort: 1317
+              protocol: TCP
+            - name: grpc
+              containerPort: 9090
+              protocol: TCP
+            - name: grpc-web
+              containerPort: 9091
+              protocol: TCP
+            - name: prometheus
+              containerPort: 26660
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 26660
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 26660
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          volumeMounts:
+            - name: axelar-data
+              mountPath: /home/axelard/.axelar
+            - name: shared-data
+              mountPath: /home/axelard/shared
+            - name: config-volume
+              mountPath: /home/axelard/config
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: axelar-data
+          persistentVolumeClaim:
+            claimName: axelar-node-data
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: axelar-shared-data
+        - name: config-volume
+          configMap:
+            name: axelar-config
+            defaultMode: 0755
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

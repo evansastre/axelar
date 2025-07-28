@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: axelar-operator-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: axelar-operator
+  namespace: axelar-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: axelar-operator-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims", "events"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["blockchain.axelar.network"]
+  resources: ["axelarnodes", "axelarnetworks"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["blockchain.axelar.network"]
+  resources: ["axelarnodes/status", "axelarnetworks/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: ["blockchain.axelar.network"]
+  resources: ["axelarnodes/finalizers", "axelarnetworks/finalizers"]
+  verbs: ["update"]
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: axelar-operator-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: axelar-operator-role
+subjects:
+- kind: ServiceAccount
+  name: axelar-operator
+  namespace: axelar-operator-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axelar-operator
+  namespace: axelar-operator-system
+  labels:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: axelar-operator
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: axelar-operator
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: axelar-operator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+      - name: manager
+        image: axelarnet/axelar-k8s-operator:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:8081
+        env:
+        - name: WATCH_NAMESPACE
+          value: ""
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: axelar-operator-metrics
+  namespace: axelar-operator-system
+  labels:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: metrics
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: controller

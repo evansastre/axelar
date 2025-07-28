@@ -1,0 +1,332 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: axelarnodes.blockchain.axelar.network
+  labels:
+    app.kubernetes.io/name: axelar-operator
+    app.kubernetes.io/component: crd
+spec:
+  group: blockchain.axelar.network
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              # Node Configuration
+              nodeType:
+                type: string
+                enum: ["validator", "sentry", "seed", "observer"]
+                default: "observer"
+              network:
+                type: string
+                enum: ["mainnet", "testnet"]
+                default: "testnet"
+              moniker:
+                type: string
+                default: "axelar-k8s-node"
+              
+              # Image Configuration
+              image:
+                type: object
+                properties:
+                  repository:
+                    type: string
+                    default: "axelarnet/axelar-core"
+                  tag:
+                    type: string
+                    default: "v0.35.5"
+                  pullPolicy:
+                    type: string
+                    default: "IfNotPresent"
+                required: ["repository", "tag"]
+              
+              # Resource Configuration
+              resources:
+                type: object
+                properties:
+                  requests:
+                    type: object
+                    properties:
+                      cpu:
+                        type: string
+                        default: "2"
+                      memory:
+                        type: string
+                        default: "4Gi"
+                  limits:
+                    type: object
+                    properties:
+                      cpu:
+                        type: string
+                        default: "4"
+                      memory:
+                        type: string
+                        default: "8Gi"
+              
+              # Storage Configuration
+              storage:
+                type: object
+                properties:
+                  size:
+                    type: string
+                    default: "500Gi"
+                  storageClass:
+                    type: string
+                    default: "standard"
+                  backup:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: false
+                      schedule:
+                        type: string
+                        default: "0 2 * * *"  # Daily at 2 AM
+                      retention:
+                        type: string
+                        default: "7d"
+              
+              # Validator-specific Configuration
+              validator:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    default: false
+                  keyManagement:
+                    type: object
+                    properties:
+                      autoRotation:
+                        type: boolean
+                        default: false
+                      rotationSchedule:
+                        type: string
+                        default: "0 0 1 * *"  # Monthly
+                      backupKeys:
+                        type: boolean
+                        default: true
+                  slashing:
+                    type: object
+                    properties:
+                      protection:
+                        type: boolean
+                        default: true
+                      maxMissedBlocks:
+                        type: integer
+                        default: 50
+              
+              # Network Configuration
+              networking:
+                type: object
+                properties:
+                  p2p:
+                    type: object
+                    properties:
+                      port:
+                        type: integer
+                        default: 26656
+                      externalAddress:
+                        type: string
+                      persistentPeers:
+                        type: array
+                        items:
+                          type: string
+                      seeds:
+                        type: array
+                        items:
+                          type: string
+                  rpc:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      port:
+                        type: integer
+                        default: 26657
+                      cors:
+                        type: boolean
+                        default: false
+                  api:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      port:
+                        type: integer
+                        default: 1317
+              
+              # Monitoring Configuration
+              monitoring:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    default: true
+                  prometheus:
+                    type: object
+                    properties:
+                      port:
+                        type: integer
+                        default: 26660
+                      path:
+                        type: string
+                        default: "/metrics"
+                  alerts:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      slack:
+                        type: object
+                        properties:
+                          webhook:
+                            type: string
+                          channel:
+                            type: string
+              
+              # Upgrade Configuration
+              upgrade:
+                type: object
+                properties:
+                  strategy:
+                    type: string
+                    enum: ["rolling", "recreate", "manual"]
+                    default: "rolling"
+                  autoUpgrade:
+                    type: boolean
+                    default: false
+                  preUpgradeBackup:
+                    type: boolean
+                    default: true
+                  rollbackOnFailure:
+                    type: boolean
+                    default: true
+              
+              # Security Configuration
+              security:
+                type: object
+                properties:
+                  podSecurityContext:
+                    type: object
+                    properties:
+                      runAsUser:
+                        type: integer
+                        default: 1000
+                      runAsGroup:
+                        type: integer
+                        default: 1001
+                      fsGroup:
+                        type: integer
+                        default: 1001
+                  networkPolicies:
+                    type: boolean
+                    default: true
+                  secretManagement:
+                    type: object
+                    properties:
+                      provider:
+                        type: string
+                        enum: ["kubernetes", "vault", "aws-secrets-manager"]
+                        default: "kubernetes"
+                      autoRotation:
+                        type: boolean
+                        default: false
+            
+            required: ["nodeType", "network"]
+          
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["Pending", "Initializing", "Syncing", "Running", "Upgrading", "Failed"]
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              syncInfo:
+                type: object
+                properties:
+                  currentHeight:
+                    type: integer
+                  latestHeight:
+                    type: integer
+                  catchingUp:
+                    type: boolean
+                  lastSyncTime:
+                    type: string
+                    format: date-time
+              networkInfo:
+                type: object
+                properties:
+                  peers:
+                    type: integer
+                  nodeId:
+                    type: string
+                  network:
+                    type: string
+              validatorInfo:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  votingPower:
+                    type: integer
+                  missedBlocks:
+                    type: integer
+                  lastSignedHeight:
+                    type: integer
+              lastBackup:
+                type: string
+                format: date-time
+              lastUpgrade:
+                type: string
+                format: date-time
+    additionalPrinterColumns:
+    - name: Type
+      type: string
+      jsonPath: .spec.nodeType
+    - name: Network
+      type: string
+      jsonPath: .spec.network
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Height
+      type: integer
+      jsonPath: .status.syncInfo.currentHeight
+    - name: Peers
+      type: integer
+      jsonPath: .status.networkInfo.peers
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: axelarnodes
+    singular: axelarnode
+    kind: AxelarNode
+    shortNames:
+    - axnode
+    - axn

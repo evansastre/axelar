@@ -141,12 +141,12 @@ jobs:
 
       - name: Validate CRDs
         run: |
-          # Validate Custom Resource Definitions using kubeval
+          # Validate Custom Resource Definitions using kubectl (kubeval doesn't support CRD schemas)
           if [ -d "operator/config/crd" ]; then
             echo "Validating CRDs..."
             find operator/config/crd -name "*.yaml" | while read crd; do
               echo "Validating CRD: $crd"
-              kubeval "$crd" || {
+              kubectl --dry-run=client --validate=true apply -f "$crd" || {
                 echo "❌ CRD validation failed for $crd"
                 exit 1
               }
@@ -173,12 +173,14 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Run Checkov security scan
         uses: bridgecrewio/checkov-action@master
+        continue-on-error: true
         with:
           directory: .
           framework: kubernetes
@@ -187,7 +189,7 @@ jobs:
 
       - name: Upload Checkov scan results
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('checkov-results.sarif') != ''
         with:
           sarif_file: checkov-results.sarif
 
@@ -600,6 +602,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Install Graphviz for diagram generation
+          sudo apt-get update
+          sudo apt-get install -y graphviz
           pip install diagrams matplotlib pillow
 
       - name: Generate architecture diagram

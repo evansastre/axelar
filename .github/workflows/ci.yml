@@ -29,14 +29,13 @@ jobs:
         with:
           version: 'v1.28.0'
 
-      - name: Install kubeval for YAML validation
+      - name: Install kubeconform for YAML validation
         run: |
-          # Download and install kubeval for Linux AMD64
-          wget -q https://github.com/instrumenta/kubeval/releases/download/v0.16.1/kubeval-linux-amd64.tar.gz
-          tar xf kubeval-linux-amd64.tar.gz
-          sudo cp kubeval /usr/local/bin
-          rm kubeval-linux-amd64.tar.gz kubeval
-          echo "✅ kubeval installed successfully"
+          # Download and install kubeconform (modern replacement for kubeval)
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin
+          echo "✅ kubeconform installed successfully"
+          kubeconform -v
 
       - name: Setup Python for ArgoCD validation
         uses: actions/setup-python@v5
@@ -97,12 +96,12 @@ jobs:
 
       - name: Validate YAML syntax (excluding kustomization and patch files)
         run: |
-          # Validate individual YAML files using kubeval (no cluster required)
+          # Validate individual YAML files using kubeconform (no cluster required)
           # Skip kustomization.yaml and patch files as they are not complete Kubernetes resources
-          # Skip ArgoCD applications as kubeval doesn't have schemas for ArgoCD CRDs
+          # Skip ArgoCD applications as kubeconform doesn't have schemas for ArgoCD CRDs
           find k8s/ -name "*.yaml" -o -name "*.yml" | grep -v kustomization.yaml | grep -v patch.yaml | while read file; do
             echo "Validating Kubernetes resource: $file"
-            kubeval "$file" || {
+            kubeconform -summary -verbose "$file" || {
               echo "❌ Validation failed for $file"
               exit 1
             }
@@ -135,7 +134,7 @@ jobs:
               echo "Validating kustomize in $overlay"
               # Generate the final manifests and validate them
               kubectl kustomize "$overlay" > /tmp/kustomized-output.yaml
-              kubeval /tmp/kustomized-output.yaml || {
+              kubeconform -summary -verbose /tmp/kustomized-output.yaml || {
                 echo "❌ Kustomize validation failed for $overlay"
                 cat /tmp/kustomized-output.yaml
                 exit 1

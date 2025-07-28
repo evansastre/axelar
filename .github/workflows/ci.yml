@@ -14,7 +14,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/axelar-k8s-deployment
 
 jobs:
   validate:
@@ -231,6 +231,7 @@ jobs:
           # Trivy results
           if [ -f "trivy-results.sarif" ]; then
             echo "✅ **Trivy Vulnerability Scan**: Completed" >> $GITHUB_STEP_SUMMARY
+            echo "📄 Results uploaded to Security tab (if code scanning is enabled)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ **Trivy Vulnerability Scan**: No results file generated" >> $GITHUB_STEP_SUMMARY
           fi
@@ -238,13 +239,15 @@ jobs:
           # Checkov results
           if [ -f "checkov-results.sarif" ]; then
             echo "✅ **Checkov Security Scan**: Completed" >> $GITHUB_STEP_SUMMARY
+            echo "📄 Results uploaded to Security tab (if code scanning is enabled)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ **Checkov Security Scan**: No results file generated" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📋 **Note**: Security scans are configured to continue on error to prevent blocking the pipeline." >> $GITHUB_STEP_SUMMARY
-          echo "Review the scan results above and address any critical findings." >> $GITHUB_STEP_SUMMARY
+          echo "If code scanning is not enabled in repository settings, SARIF uploads will show warnings but won't fail the build." >> $GITHUB_STEP_SUMMARY
+          echo "To enable code scanning: Repository Settings → Security & analysis → Code scanning → Set up" >> $GITHUB_STEP_SUMMARY
 
   build-operator:
     name: Build Operator
@@ -257,6 +260,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+          cache: false  # Disable cache since go.sum doesn't exist yet
 
       - name: Check operator structure
         run: |
@@ -842,6 +846,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, security-scan, build-operator, test-deployment, test-argocd-integration]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+      packages: write
+      actions: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -862,10 +870,23 @@ jobs:
         run: |
           echo "Loading and pushing operator image..."
           docker load < operator-image.tar
-          docker tag axelar-k8s-operator:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/axelar-operator:${{ github.sha }}
-          docker tag axelar-k8s-operator:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/axelar-operator:latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/axelar-operator:${{ github.sha }}
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/axelar-operator:latest
+          
+          # Use lowercase repository name for GHCR compatibility
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          docker tag axelar-k8s-operator:${{ github.sha }} ${{ env.REGISTRY }}/${REPO_LOWER}/axelar-operator:${{ github.sha }}
+          docker tag axelar-k8s-operator:${{ github.sha }} ${{ env.REGISTRY }}/${REPO_LOWER}/axelar-operator:latest
+          
+          echo "Pushing images to ${{ env.REGISTRY }}/${REPO_LOWER}/axelar-operator..."
+          docker push ${{ env.REGISTRY }}/${REPO_LOWER}/axelar-operator:${{ github.sha }} || {
+            echo "❌ Failed to push SHA-tagged image"
+            echo "Checking if package exists and permissions are correct..."
+            exit 1
+          }
+          docker push ${{ env.REGISTRY }}/${REPO_LOWER}/axelar-operator:latest || {
+            echo "❌ Failed to push latest image"
+            exit 1
+          }
           echo "✅ Operator image pushed successfully"
 
       - name: Create Release
@@ -888,7 +909,7 @@ jobs:
             - ArgoCD integration tested
             
             ## 📦 Components
-            - **Axelar Operator**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/axelar-operator:${{ github.sha }}`
+            - **Axelar Operator**: `${{ env.REGISTRY }}/${{ github.repository }}/axelar-operator:${{ github.sha }}`
             - **Kubernetes Manifests**: Testnet and mainnet configurations
             - **ArgoCD Applications**: GitOps deployment configurations
             - **Documentation**: Comprehensive deployment guides

@@ -23,12 +23,18 @@ jobs:
         with:
           version: 'v1.28.0'
 
+      - name: Install kubeval for YAML validation
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo cp kubeval /usr/local/bin
+
       - name: Validate YAML syntax (excluding kustomization files)
         run: |
-          # Validate individual YAML files but skip kustomization.yaml files
+          # Validate individual YAML files using kubeval (no cluster required)
           find k8s/ -name "*.yaml" -o -name "*.yml" | grep -v kustomization.yaml | while read file; do
             echo "Validating $file"
-            kubectl --dry-run=client --validate=true apply -f "$file" || {
+            kubeval "$file" || {
               echo "❌ Validation failed for $file"
               exit 1
             }
@@ -37,7 +43,7 @@ jobs:
 
       - name: Validate Kustomize configurations
         run: |
-          # Test kustomize build for each overlay
+          # Test kustomize build for each overlay (no cluster required)
           for overlay in k8s/*/; do
             if [ -f "$overlay/kustomization.yaml" ]; then
               echo "Validating kustomize in $overlay"
@@ -51,11 +57,11 @@ jobs:
 
       - name: Validate CRDs
         run: |
-          # Validate Custom Resource Definitions
+          # Validate Custom Resource Definitions using kubeval
           if [ -d "operator/config/crd" ]; then
             echo "Validating CRDs"
             find operator/config/crd -name "*.yaml" | while read crd; do
-              kubectl --dry-run=client --validate=true apply -f "$crd"
+              kubeval "$crd"
             done
             echo "✅ CRD validation passed"
           fi
@@ -269,7 +275,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Start minikube
+      - name: Install kubeval for validation
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo cp kubeval /usr/local/bin
+
+      - name: Validate ArgoCD applications
+        run: |
+          # Validate application manifests using kubeval (no cluster required)
+          find gitops/applications/ -name "*.yaml" | while read app; do
+            echo "Validating ArgoCD application: $app"
+            kubeval "$app" || {
+              echo "❌ ArgoCD application validation failed for $app"
+              exit 1
+            }
+          done
+          echo "✅ ArgoCD integration test passed"
+
+      - name: Start minikube for ArgoCD test
         uses: medyagh/setup-minikube@master
         with:
           cpus: 2
@@ -285,13 +309,7 @@ jobs:
         run: |
           # Apply ArgoCD project
           kubectl apply -f gitops/applications/axelar-project.yaml
-          
-          # Validate application manifests
-          find gitops/applications/ -name "*.yaml" | while read app; do
-            echo "Validating ArgoCD application: $app"
-            kubectl --dry-run=client --validate=true apply -f "$app"
-          done
-          echo "✅ ArgoCD integration test passed"
+          echo "✅ ArgoCD project applied successfully"
 
   build-docs:
     name: Build Documentation
@@ -377,8 +395,8 @@ jobs:
             🚀 **Axelar Kubernetes Deployment v${{ github.run_number }}**
             
             ## ✅ Validation Results
-            - Kubernetes manifests validated
-            - Security scans passed
+            - Kubernetes manifests validated with kubeval
+            - Security scans passed (Trivy + Checkov)
             - Operator build successful
             - Deployment tests passed (K8s v1.28.0, v1.29.0)
             - ArgoCD integration tested

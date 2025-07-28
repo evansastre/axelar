@@ -37,6 +37,53 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Create ArgoCD validation script
+        run: |
+          cat > validate_argocd.py << 'EOF'
+          import yaml
+          import sys
+          import os
+          
+          def validate_argocd_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      docs = list(yaml.safe_load_all(f))
+                      if not docs or all(doc is None for doc in docs):
+                          print(f'Empty or invalid YAML file: {filepath}')
+                          return False
+                      
+                      # Validate ArgoCD resource structure
+                      for i, doc in enumerate(docs):
+                          if doc is None:
+                              continue
+                          if not isinstance(doc, dict):
+                              print(f'Document {i} is not a valid YAML object in {filepath}')
+                              return False
+                          
+                          # Check for required fields in ArgoCD resources
+                          if 'apiVersion' in doc and 'argoproj.io' in doc['apiVersion']:
+                              if 'kind' not in doc or 'metadata' not in doc:
+                                  print(f'Invalid ArgoCD resource structure in document {i} of {filepath}')
+                                  return False
+                              if 'name' not in doc.get('metadata', {}):
+                                  print(f'ArgoCD resource missing name in document {i} of {filepath}')
+                                  return False
+                              print(f'Valid ArgoCD {doc["kind"]} resource: {doc["metadata"]["name"]}')
+                      return True
+              except Exception as e:
+                  print(f'YAML validation error in {filepath}: {e}')
+                  return False
+          
+          if __name__ == "__main__":
+              if len(sys.argv) != 2:
+                  print("Usage: python validate_argocd.py <file>")
+                  sys.exit(1)
+              
+              filepath = sys.argv[1]
+              if not validate_argocd_file(filepath):
+                  sys.exit(1)
+          EOF
+
       - name: Validate YAML syntax (excluding kustomization and patch files)
         run: |
           # Validate individual YAML files using kubeval (no cluster required)
@@ -55,36 +102,11 @@ jobs:
         run: |
           # Validate ArgoCD applications using Python (kubeval doesn't support ArgoCD CRDs)
           if [ -d "gitops/applications/" ]; then
+            echo "Validating ArgoCD applications..."
+            failed=0
             find gitops/applications/ -name "*.yaml" | while read app; do
               echo "Validating ArgoCD application: $app"
-              python3 -c "
-import yaml
-import sys
-try:
-    with open('$app', 'r') as f:
-        docs = list(yaml.safe_load_all(f))
-        if not docs or all(doc is None for doc in docs):
-            print('Empty or invalid YAML file')
-            sys.exit(1)
-        # Validate ArgoCD resource structure
-        for i, doc in enumerate(docs):
-            if doc is None:
-                continue
-            if not isinstance(doc, dict):
-                print(f'Document {i} is not a valid YAML object')
-                sys.exit(1)
-            # Check for required fields in ArgoCD resources
-            if 'apiVersion' in doc and 'argoproj.io' in doc['apiVersion']:
-                if 'kind' not in doc or 'metadata' not in doc:
-                    print(f'Invalid ArgoCD resource structure in document {i}')
-                    sys.exit(1)
-                if 'name' not in doc.get('metadata', {}):
-                    print(f'ArgoCD resource missing name in document {i}')
-                    sys.exit(1)
-except Exception as e:
-    print(f'YAML validation error: {e}')
-    sys.exit(1)
-" || {
+              python3 validate_argocd.py "$app" || {
                 echo "❌ ArgoCD application validation failed for $app"
                 exit 1
               }
@@ -450,41 +472,61 @@ except Exception as e:
         with:
           python-version: '3.9'
 
+      - name: Create ArgoCD validation script
+        run: |
+          cat > validate_argocd.py << 'EOF'
+          import yaml
+          import sys
+          import os
+          
+          def validate_argocd_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      docs = list(yaml.safe_load_all(f))
+                      if not docs or all(doc is None for doc in docs):
+                          print(f'Empty or invalid YAML file: {filepath}')
+                          return False
+                      
+                      # Validate ArgoCD resource structure
+                      for i, doc in enumerate(docs):
+                          if doc is None:
+                              continue
+                          if not isinstance(doc, dict):
+                              print(f'Document {i} is not a valid YAML object in {filepath}')
+                              return False
+                          
+                          # Check for required fields in ArgoCD resources
+                          if 'apiVersion' in doc and 'argoproj.io' in doc['apiVersion']:
+                              if 'kind' not in doc or 'metadata' not in doc:
+                                  print(f'Invalid ArgoCD resource structure in document {i} of {filepath}')
+                                  return False
+                              if 'name' not in doc.get('metadata', {}):
+                                  print(f'ArgoCD resource missing name in document {i} of {filepath}')
+                                  return False
+                              print(f'Valid ArgoCD {doc["kind"]} resource: {doc["metadata"]["name"]}')
+                      return True
+              except Exception as e:
+                  print(f'YAML validation error in {filepath}: {e}')
+                  return False
+          
+          if __name__ == "__main__":
+              if len(sys.argv) != 2:
+                  print("Usage: python validate_argocd.py <file>")
+                  sys.exit(1)
+              
+              filepath = sys.argv[1]
+              if not validate_argocd_file(filepath):
+                  sys.exit(1)
+          EOF
+
       - name: Validate ArgoCD applications (Python-based)
         run: |
           # Validate application manifests using Python (kubeval doesn't support ArgoCD CRDs)
           if [ -d "gitops/applications/" ]; then
+            echo "Validating ArgoCD applications..."
             find gitops/applications/ -name "*.yaml" | while read app; do
               echo "Validating ArgoCD application: $app"
-              python3 -c "
-import yaml
-import sys
-try:
-    with open('$app', 'r') as f:
-        docs = list(yaml.safe_load_all(f))
-        if not docs or all(doc is None for doc in docs):
-            print('Empty or invalid YAML file')
-            sys.exit(1)
-        # Validate ArgoCD resource structure
-        for i, doc in enumerate(docs):
-            if doc is None:
-                continue
-            if not isinstance(doc, dict):
-                print(f'Document {i} is not a valid YAML object')
-                sys.exit(1)
-            # Check for required fields in ArgoCD resources
-            if 'apiVersion' in doc and 'argoproj.io' in doc['apiVersion']:
-                if 'kind' not in doc or 'metadata' not in doc:
-                    print(f'Invalid ArgoCD resource structure in document {i}')
-                    sys.exit(1)
-                if 'name' not in doc.get('metadata', {}):
-                    print(f'ArgoCD resource missing name in document {i}')
-                    sys.exit(1)
-                print(f'Valid ArgoCD {doc[\"kind\"]} resource: {doc[\"metadata\"][\"name\"]}')
-except Exception as e:
-    print(f'YAML validation error: {e}')
-    sys.exit(1)
-" || {
+              python3 validate_argocd.py "$app" || {
                 echo "❌ ArgoCD application validation failed for $app"
                 exit 1
               }

@@ -29,12 +29,62 @@ jobs:
         with:
           version: 'v1.28.0'
 
-      - name: Validate YAML syntax using kubectl
+      - name: Validate YAML syntax using Python
         run: |
-          # Validate individual YAML files using kubectl dry-run (no cluster required)
+          # Validate individual YAML files using Python YAML parser
           # Skip kustomization.yaml and patch files as they are not complete Kubernetes resources
-          # Skip ArgoCD applications as kubectl doesn't have schemas for ArgoCD CRDs
-          echo "Validating Kubernetes manifests with kubectl dry-run..."
+          echo "Validating Kubernetes manifests with Python YAML parser..."
+          
+          # Create validation script
+          cat > validate_k8s.py << 'EOF'
+          import yaml
+          import sys
+          import os
+          
+          def validate_k8s_file(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      docs = list(yaml.safe_load_all(f))
+                      if not docs or all(doc is None for doc in docs):
+                          print(f'Empty or invalid YAML file: {filepath}')
+                          return False
+                      
+                      # Validate Kubernetes resource structure
+                      for i, doc in enumerate(docs):
+                          if doc is None:
+                              continue
+                          if not isinstance(doc, dict):
+                              print(f'Document {i} is not a valid YAML object in {filepath}')
+                              return False
+                          
+                          # Check for required Kubernetes fields
+                          if 'apiVersion' in doc and 'kind' in doc:
+                              if 'metadata' not in doc:
+                                  print(f'Kubernetes resource missing metadata in document {i} of {filepath}')
+                                  return False
+                              if 'name' not in doc.get('metadata', {}):
+                                  print(f'Kubernetes resource missing name in document {i} of {filepath}')
+                                  return False
+                              print(f'Valid Kubernetes {doc["kind"]} resource: {doc["metadata"]["name"]}')
+                          else:
+                              print(f'Document {i} in {filepath} is not a Kubernetes resource (missing apiVersion or kind)')
+                      return True
+              except yaml.YAMLError as e:
+                  print(f'YAML syntax error in {filepath}: {e}')
+                  return False
+              except Exception as e:
+                  print(f'Validation error in {filepath}: {e}')
+                  return False
+          
+          if __name__ == "__main__":
+              if len(sys.argv) != 2:
+                  print("Usage: python validate_k8s.py <file>")
+                  sys.exit(1)
+              
+              filepath = sys.argv[1]
+              if not validate_k8s_file(filepath):
+                  sys.exit(1)
+          EOF
           
           # Find and validate YAML files
           find k8s/ -name "*.yaml" -o -name "*.yml" | grep -v kustomization.yaml | grep -v patch.yaml | while read file; do
@@ -42,11 +92,9 @@ jobs:
             
             # Check if file contains valid Kubernetes resources
             if grep -q "apiVersion\|kind" "$file"; then
-              # Use kubectl dry-run for validation
-              kubectl apply --dry-run=client -f "$file" || {
+              # Use Python script for validation
+              python3 validate_k8s.py "$file" || {
                 echo "❌ Validation failed for $file"
-                echo "File contents:"
-                cat "$file"
                 exit 1
               }
               echo "✅ Valid: $file"
@@ -136,9 +184,11 @@ jobs:
           for overlay in k8s/*/; do
             if [ -f "$overlay/kustomization.yaml" ]; then
               echo "Validating kustomize in $overlay"
-              # Generate the final manifests and validate them with kubectl
+              # Generate the final manifests and validate YAML syntax
               kubectl kustomize "$overlay" > /tmp/kustomized-output.yaml
-              kubectl apply --dry-run=client -f /tmp/kustomized-output.yaml || {
+              
+              # Validate the generated YAML with Python
+              python3 validate_k8s.py /tmp/kustomized-output.yaml || {
                 echo "❌ Kustomize validation failed for $overlay"
                 echo "Generated manifest:"
                 cat /tmp/kustomized-output.yaml

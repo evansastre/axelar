@@ -1,0 +1,7 @@
+def hello_world():
+  print("Hello, World!")
+  return "success"
+
+# 这里有一个潜在的问题：没有类型注解
+def add_numbers(a, b):
+  return a + b
